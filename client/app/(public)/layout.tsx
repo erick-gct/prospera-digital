@@ -1,7 +1,9 @@
-'use client';
+"use client";
 
 import { PublicNavbar } from "@/app/components/layout/navbar"; // Importas TU navbar
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { PublicFooter } from "@/app/components/layout/footer";
+import { ScrollProgress } from "@/components/ui/scroll-progress";
 
 export default function PublicLayout({
   children,
@@ -13,14 +15,17 @@ export default function PublicLayout({
 
   // Puedes ajustar esta altura. Es para evitar que se oculte
   // con un scroll muy pequeño al inicio.
-  const NAVBAR_HEIGHT_THRESHOLD = 64; 
+  const NAVBAR_HEIGHT_THRESHOLD = 64;
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
 
       // Si estás scrolleando hacia abajo Y ya pasaste la altura del navbar
-      if (currentScrollY > lastScrollY && currentScrollY > NAVBAR_HEIGHT_THRESHOLD) {
+      if (
+        currentScrollY > lastScrollY &&
+        currentScrollY > NAVBAR_HEIGHT_THRESHOLD
+      ) {
         setIsVisible(false); // Ocultar
       } else {
         // Si estás scrolleando hacia arriba
@@ -32,11 +37,11 @@ export default function PublicLayout({
     };
 
     // Añadir el listener al montar el componente
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener("scroll", handleScroll, { passive: true });
 
     // Limpiar el listener al desmontar
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, [lastScrollY]); // El efecto depende de la última posición de scroll
 
@@ -56,7 +61,7 @@ export default function PublicLayout({
           border-b border-border/40 
           bg-background/95 backdrop-blur-sm 
           transition-transform duration-600 ease-in-out
-          ${isVisible ? 'translate-y-0' : '-translate-y-full'}
+          ${isVisible ? "translate-y-0" : "-translate-y-full"}
         `}
       >
         {/* Ponemos la navbar dentro de un 'container' para que 
@@ -65,13 +70,14 @@ export default function PublicLayout({
         */}
         <div className="container flex h-16 items-center">
           <PublicNavbar />
+          <ScrollProgress className="top-[65px] bg-chart-2 h-1" />
         </div>
       </header>
 
       {/* El contenido de tu página */}
       <main>{children}</main>
-
-      {/* Aquí podrías poner un <PublicFooter /> en el futuro */}
+      {/* Aquí va el <PublicFooter /> */}
+      <PublicFooter />
     </div>
   );
 }
