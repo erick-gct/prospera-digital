@@ -63,7 +63,7 @@ export function PublicNavbar() {
 
       {/* 4. Ponemos el botón como un elemento hermano, fuera del menú */}
       <Button asChild variant="default" className="bg-chart-2">
-        <Link href="/login">Iniciar Sesión</Link>
+        <Link href="/login">Acceder</Link>
       </Button>
     </div>
   );
