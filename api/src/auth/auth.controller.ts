@@ -1,5 +1,6 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto'; 
 
 @Controller('auth') // Esto crea la ruta base: http://localhost:3001/auth
 export class AuthController {
@@ -15,5 +16,11 @@ export class AuthController {
     return this.authService.signIn(signInDto.email, signInDto.password);
   }
 
-  // (Aquí crearemos el endpoint de @Post('register') más adelante)
+   // --- ¡ESTO ES LO QUE FALTABA! ---
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto) {
+    // Recibe los datos, los valida contra el DTO y llama al servicio
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return this.authService.register(registerDto);
+  }
 }

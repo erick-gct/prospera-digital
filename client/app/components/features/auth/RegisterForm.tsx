@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { defineStepper } from "@stepperize/react";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,14 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -46,9 +38,16 @@ import {
   ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+
+import { useRouter } from "next/navigation";
+import { Combobox, ComboboxOption } from "@/components/ui/combobox";
+import { toast } from "sonner";
+// Asegúrate de que este import coincida con el nombre real de tu archivo (cliente.ts o client.ts)
+import { createClient } from "@/lib/supabase/cliente";
 
 // --- Definición de pasos con Stepperize ---
 const { useStepper } = defineStepper(
@@ -58,26 +57,21 @@ const { useStepper } = defineStepper(
   { id: "step-4", title: "Salud" }
 );
 
-// --- Lista de países para el Combobox ---
-const countries = [
-  { value: "ec", label: "Ecuador" },
-  { value: "co", label: "Colombia" },
-  { value: "pe", label: "Perú" },
-  { value: "ar", label: "Argentina" },
-  { value: "cl", label: "Chile" },
-  { value: "mx", label: "México" },
-  { value: "es", label: "España" },
-  { value: "us", label: "Estados Unidos" },
-  { value: "br", label: "Brasil" },
-  { value: "uy", label: "Uruguay" },
-];
-
 export function RegisterForm() {
   const stepper = useStepper();
-  const [isLoading, setIsLoading] = useState(false);
-  const [openCountry, setOpenCountry] = useState(false);
+  const router = useRouter();
 
-  // --- Estado del formulario ---
+  // --- ESTADO LOCAL ---
+  // 1. AQUÍ AGREGAMOS EL ESTADO DE CARGA QUE FALTABA
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [paisesOptions, setPaisesOptions] = useState<ComboboxOption[]>([]);
+  const [tiposSangreOptions, setTiposSangreOptions] = useState<
+    { id: number; nombre: string }[]
+  >([]);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(true);
+
+  // Estado del formulario
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
@@ -85,13 +79,57 @@ export function RegisterForm() {
     fechaNacimiento: undefined as Date | undefined,
     email: "",
     password: "",
-    pais: "",
+    paisId: undefined as number | undefined,
     ciudad: "",
     direccion: "",
     telefono: "",
-    tipoSangre: "",
+    tipoSangreId: undefined as number | undefined,
     enfermedades: "",
   });
+
+  // --- CARGAR DATOS DE LA API ---
+  useEffect(() => {
+    const fetchCatalogs = async () => {
+      try {
+        // 1. Petición de Países
+        const resPaises = await fetch("http://localhost:3001/common/paises");
+        if (!resPaises.ok) throw new Error("Error cargando países");
+        const dataPaises = await resPaises.json();
+
+        if (Array.isArray(dataPaises)) {
+          const paisesMapeados = dataPaises.map((p: any) => ({
+            value: p.id.toString(),
+            label: p.nombre,
+          }));
+          setPaisesOptions(paisesMapeados);
+        } else {
+          setPaisesOptions([]);
+        }
+
+        // 2. Petición de Tipos de Sangre
+        const resSangre = await fetch(
+          "http://localhost:3001/common/tipos-sangre"
+        );
+        if (!resSangre.ok) throw new Error("Error cargando tipos de sangre");
+        const dataSangre = await resSangre.json();
+
+        if (Array.isArray(dataSangre)) {
+          setTiposSangreOptions(dataSangre);
+        } else {
+          setTiposSangreOptions([]);
+        }
+      } catch (error) {
+        console.error("Error cargando catálogos:", error);
+        toast.error("Error de conexión", {
+          description: "No se pudieron cargar las listas desplegables.",
+        });
+      } finally {
+        setLoadingCatalogs(false);
+      }
+    };
+
+    fetchCatalogs();
+  }, []);
 
   // Calcular índice actual y progreso
   const currentStepIndex = stepper.all.findIndex(
@@ -101,7 +139,7 @@ export function RegisterForm() {
   const isLastStep = currentStepIndex === stepper.all.length - 1;
   const progressValue = ((currentStepIndex + 1) / stepper.all.length) * 100;
 
-  // --- Manejadores ---
+  // --- MANEJADORES ---
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -113,20 +151,55 @@ export function RegisterForm() {
     setFormData((prev) => ({ ...prev, fechaNacimiento: date }));
   };
 
-  const handleBloodTypeChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, tipoSangre: value }));
+  const handleCountryChange = (valueAsString: string) => {
+    setFormData((prev) => ({ ...prev, paisId: Number(valueAsString) }));
   };
 
-  const handleCountryChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, pais: value }));
-    setOpenCountry(false);
+  const handleBloodTypeChange = (valueAsString: string) => {
+    setFormData((prev) => ({ ...prev, tipoSangreId: Number(valueAsString) }));
   };
 
+  // --- SUBMIT ---
   const handleFinalSubmit = async () => {
+    // 2. USAMOS EL SETTER LOCAL, NO EL DEL STEPPER
     setIsLoading(true);
-    console.log("Enviando formulario:", formData);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsLoading(false);
+    const supabase = createClient();
+
+    try {
+      console.log("Enviando DTO:", formData);
+
+      const response = await fetch("http://localhost:3001/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message || "Error al registrar");
+
+      toast.success("¡Cuenta creada exitosamente!");
+
+      if (data.session) {
+        const { error: sessionError } = await supabase.auth.setSession(
+          data.session
+        );
+        if (!sessionError) {
+          router.push("/dashboard");
+          return;
+        }
+      } else {
+        router.push("/login");
+      }
+    } catch (error) {
+      toast.error("Error al crear la cuenta", {
+        description: (error as Error).message,
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+    } finally {
+      // 3. USAMOS EL SETTER LOCAL
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -149,7 +222,7 @@ export function RegisterForm() {
           </p>
         </div>
 
-        {/* Stepper Personalizado con líneas conectoras */}
+        {/* Stepper Personalizado */}
         <div className="relative">
           <div className="flex items-center justify-between">
             {stepper.all.map((step, index) => {
@@ -271,9 +344,7 @@ export function RegisterForm() {
                       selected={formData.fechaNacimiento}
                       onSelect={handleDateChange}
                       initialFocus
-                      captionLayout="dropdown"
-                      fromYear={1930}
-                      toYear={new Date().getFullYear()}
+                      captionLayout="dropdown-buttons"
                     />
                   </PopoverContent>
                 </Popover>
@@ -316,52 +387,18 @@ export function RegisterForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
               <div className="space-y-2">
                 <Label htmlFor="pais">País</Label>
-                <Popover open={openCountry} onOpenChange={setOpenCountry}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openCountry}
-                      className="w-full justify-between"
-                    >
-                      {formData.pais
-                        ? countries.find(
-                            (country) => country.value === formData.pais
-                          )?.label
-                        : "Selecciona un país..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar país..." />
-                      <CommandList>
-                        <CommandEmpty>No se encontró el país.</CommandEmpty>
-                        <CommandGroup>
-                          {countries.map((country) => (
-                            <CommandItem
-                              key={country.value}
-                              value={country.value}
-                              onSelect={() =>
-                                handleCountryChange(country.value)
-                              }
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.pais === country.value
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                              {country.label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                {loadingCatalogs ? (
+                  <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
+                ) : (
+                  <Combobox
+                    options={paisesOptions}
+                    value={formData.paisId?.toString() || ""}
+                    onValueChange={handleCountryChange}
+                    placeholder="Selecciona un país..."
+                    searchPlaceholder="Buscar país..."
+                    emptyPlaceholder="No se encontró el país."
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ciudad">Ciudad</Label>
@@ -404,20 +441,17 @@ export function RegisterForm() {
                 <Label htmlFor="tipoSangre">Tipo de Sangre</Label>
                 <Select
                   onValueChange={handleBloodTypeChange}
-                  value={formData.tipoSangre}
+                  value={formData.tipoSangreId?.toString() || ""}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona tu tipo de sangre" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="A+">A+</SelectItem>
-                    <SelectItem value="A-">A-</SelectItem>
-                    <SelectItem value="B+">B+</SelectItem>
-                    <SelectItem value="B-">B-</SelectItem>
-                    <SelectItem value="AB+">AB+</SelectItem>
-                    <SelectItem value="AB-">AB-</SelectItem>
-                    <SelectItem value="O+">O+</SelectItem>
-                    <SelectItem value="O-">O-</SelectItem>
+                    {tiposSangreOptions.map((tipo) => (
+                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                        {tipo.nombre}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
