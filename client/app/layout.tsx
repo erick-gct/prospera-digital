@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Roboto } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner"; // 1. Importar Toaster
+
 
 // Configuración de Inter como fuente principal
 const inter = Inter({
@@ -39,6 +41,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );

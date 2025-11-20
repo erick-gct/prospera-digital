@@ -55,6 +55,36 @@ export class AuthService {
   async register(registerDto: RegisterDto): Promise<any> {
     console.log(`(API) Registrando: ${registerDto.email}`);
 
+    // --- 1. VALIDACIÓN DE UNICIDAD (Nuevo Bloque) ---
+    // Consultamos si ya existe alguien con esa cédula O ese email en la tabla 'paciente'
+    const { data: existingUsers, error: checkError } = await this.supabase
+      .from('paciente')
+      .select('cedula, email')
+      .or(`cedula.eq.${registerDto.cedula},email.eq.${registerDto.email}`);
+
+    if (checkError) {
+      console.error('(API) Error verificando duplicados:', checkError);
+      throw new InternalServerErrorException(
+        'Error al verificar datos existentes.',
+      );
+    }
+
+    // Si el array tiene elementos, hay conflicto
+    if (existingUsers && existingUsers.length > 0) {
+      const match = existingUsers[0];
+      if (match.cedula === registerDto.cedula) {
+        throw new BadRequestException(
+          `La cédula ${registerDto.cedula} ya está registrada.`,
+        );
+      }
+      if (match.email === registerDto.email) {
+        throw new BadRequestException(
+          `El correo ${registerDto.email} ya está registrado.`,
+        );
+      }
+    }
+    // -----------------------------------------------
+
     // 1. Crear Auth User
     const { data: authData, error: authError } =
       await this.supabase.auth.signUp({
@@ -95,6 +125,14 @@ export class AuthService {
       // Opcional: rollback del usuario auth aquí
       // Si falla la creación del perfil, borramos el usuario de Auth para no dejar "huérfanos"
       await this.supabase.auth.admin.deleteUser(userId);
+
+      // Si el error de base de datos es por duplicado (por si acaso pasó la validación 1)
+      if (dbError.code === '23505') { // Código PostgreSQL para Unique Violation
+        throw new BadRequestException(
+          'Ya existe un registro con estos datos (Cédula o Email).',
+        );
+      }
+
       throw new InternalServerErrorException(
         `Error al crear perfil: ${dbError.message}`,
       );
