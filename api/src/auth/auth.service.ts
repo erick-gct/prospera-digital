@@ -74,6 +74,7 @@ export class AuthService {
     // 2. Insertar en 'paciente' con IDs reales
     const { error: dbError } = await this.supabase.from('paciente').insert({
       usuario_id: userId,
+      email: registerDto.email,
       nombres: registerDto.nombre,
       apellidos: registerDto.apellido,
       cedula: registerDto.cedula,
@@ -86,6 +87,7 @@ export class AuthService {
       pais_id: registerDto.paisId, // ID real del país
       tipo_sangre_id: registerDto.tipoSangreId, // ID real del tipo de sangre
       estado_paciente_id: 1, // <-- POR DEFECTO: 1 (Activo)
+      fecha_creacion: new Date(),
     });
 
     if (dbError) {

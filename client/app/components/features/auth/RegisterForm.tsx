@@ -39,10 +39,20 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
 import { toast } from "sonner";
@@ -64,6 +74,9 @@ export function RegisterForm() {
   // --- ESTADO LOCAL ---
   // 1. AQUÍ AGREGAMOS EL ESTADO DE CARGA QUE FALTABA
   const [isLoading, setIsLoading] = useState(false);
+   // Estados para controlar los diálogos
+  const [showSummary, setShowSummary] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [paisesOptions, setPaisesOptions] = useState<ComboboxOption[]>([]);
   const [tiposSangreOptions, setTiposSangreOptions] = useState<
@@ -159,10 +172,33 @@ export function RegisterForm() {
     setFormData((prev) => ({ ...prev, tipoSangreId: Number(valueAsString) }));
   };
 
-  // --- SUBMIT ---
-  const handleFinalSubmit = async () => {
-    // 2. USAMOS EL SETTER LOCAL, NO EL DEL STEPPER
-    setIsLoading(true);
+   // --- HELPERS PARA MOSTRAR ETIQUETAS EN EL RESUMEN ---
+  const getPaisLabel = () => {
+    return (
+      paisesOptions.find((p) => Number(p.value) === formData.paisId)?.label ||
+      "No seleccionado"
+    );
+  };
+
+  const getTipoSangreLabel = () => {
+    return (
+      tiposSangreOptions.find((t) => t.id === formData.tipoSangreId)?.nombre ||
+      "No seleccionado"
+    );
+  };
+
+   // --- FLUJO DE ENVÍO ---
+
+  // 1. Al dar clic en "Finalizar", solo abrimos el resumen
+  const handleOpenSummary = () => {
+    // Aquí podrías añadir validaciones extra si quisieras
+    setShowSummary(true);
+  };
+
+    // 2. Confirmación Final (Llamada a la API)
+  const handleConfirmRegistration = async () => {
+    setShowSummary(false); // Cerramos resumen
+    setIsLoading(true); // Iniciamos carga
     const supabase = createClient();
 
     try {
@@ -178,31 +214,33 @@ export function RegisterForm() {
 
       if (!response.ok) throw new Error(data.message || "Error al registrar");
 
-      toast.success("¡Cuenta creada exitosamente!");
-
+      // Guardamos sesión si existe (auto-login)
       if (data.session) {
-        const { error: sessionError } = await supabase.auth.setSession(
-          data.session
-        );
-        if (!sessionError) {
-          router.push("/dashboard");
-          return;
-        }
-      } else {
-        router.push("/login");
+        await supabase.auth.setSession(data.session);
       }
+
+      // ¡ÉXITO! Abrimos el diálogo final
+      setShowSuccess(true);
+      
     } catch (error) {
       toast.error("Error al crear la cuenta", {
         description: (error as Error).message,
         icon: <AlertTriangle className="h-5 w-5" />,
       });
     } finally {
-      // 3. USAMOS EL SETTER LOCAL
       setIsLoading(false);
     }
   };
 
+  // 3. Redirección Final
+  const handleFinish = () => {
+    setShowSuccess(false);
+    router.push("/login");
+  };
+
+
   return (
+    <>
     <Card className="w-full max-w-2xl min-w-[640px]">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold text-primary">
@@ -505,7 +543,7 @@ export function RegisterForm() {
 
           {isLastStep ? (
             <Button
-              onClick={handleFinalSubmit}
+              onClick={handleOpenSummary}
               disabled={isLoading}
               className="gap-2"
             >
@@ -521,5 +559,118 @@ export function RegisterForm() {
         </div>
       </CardFooter>
     </Card>
+
+          {/* --- DIÁLOGO DE RESUMEN (Confirmación) --- */}
+      <AlertDialog open={showSummary} onOpenChange={setShowSummary}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Revisa tu información antes de crear tu cuenta
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Por favor verifica que todos los datos sean correctos. Podrás
+              editar cierta información después en tu perfil.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* Lista de datos ingresados */}
+          <div className="grid gap-4 py-4 text-sm border rounded-lg p-4 bg-muted/20 max-h-[60vh] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+              <div className="font-semibold text-muted-foreground">Nombre:</div>
+              <div>
+                {formData.nombre} {formData.apellido}
+              </div>
+
+              <div className="font-semibold text-muted-foreground">Cédula:</div>
+              <div>{formData.cedula}</div>
+
+              <div className="font-semibold text-muted-foreground">Fecha Nac.:</div>
+              <div>
+                {formData.fechaNacimiento
+                  ? format(formData.fechaNacimiento, "PPP", { locale: es })
+                  : "-"}
+              </div>
+
+              <div className="font-semibold text-muted-foreground">Email:</div>
+              <div className="break-all">{formData.email}</div>
+
+              <div className="font-semibold text-muted-foreground">País:</div>
+              <div>{getPaisLabel()}</div>
+
+              <div className="font-semibold text-muted-foreground">Ciudad:</div>
+              <div>{formData.ciudad}</div>
+
+              <div className="font-semibold text-muted-foreground">
+                Dirección:
+              </div>
+              <div className="break-words">{formData.direccion}</div>
+
+              <div className="font-semibold text-muted-foreground">
+                Teléfono:
+              </div>
+              <div>{formData.telefono}</div>
+
+              <div className="font-semibold text-muted-foreground">
+                Tipo de Sangre:
+              </div>
+              <div>{getTipoSangreLabel()}</div>
+
+              <div className="font-semibold text-muted-foreground">
+                Enfermedades:
+              </div>
+              <div className="break-words">
+                {formData.enfermedades || "Ninguna"}
+              </div>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRegistration}
+              disabled={isLoading}
+              className="gap-2"
+            >
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Confirmar Registro
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --- DIÁLOGO DE ÉXITO FINAL --- */}
+      <AlertDialog open={showSuccess}>
+        <AlertDialogContent className="max-w-md text-center">
+          <div className="flex justify-center mb-4">
+            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-2xl text-green-700">
+              ¡Felicidades!
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base">
+              Creaste tu cuenta exitosamente. Bienvenido a nuestro consultorio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="py-4 text-muted-foreground text-sm">
+            <p>
+              Ahora, por favor revisa tu correo electrónico para activar tu
+              cuenta y poder iniciar sesión.
+            </p>
+          </div>
+
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction onClick={handleFinish} className="w-full sm:w-auto">
+              Aceptar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+  </>
+
   );
 }
