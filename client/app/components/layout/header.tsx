@@ -1,29 +1,121 @@
-"use client"
+"use client";
+import { useRouter } from "next/navigation"; // 1. Importamos router
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Clock, LogOut } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Clock, LogOut, Loader2 } from "lucide-react";
+
+import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/cliente"; // 2. Importamos cliente Supabase
+import { toast } from "sonner";
+// 1. Importamos los componentes del Alert Dialog
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 
 export function AppHeader() {
-  const [time, setTime] = useState("")
+  const [time, setTime] = useState("");
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // Estado para loading
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
-    // Actualiza la hora cada segundo
-    const timerId = setInterval(() => {
-      const now = new Date()
-      setTime(
-        now.toLocaleTimeString("es-EC", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
-      )
-    }, 1000)
+  const update = () => {
+    const now = new Date();
+    setTime(
+      now.toLocaleTimeString("es-EC", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
+  };
 
-    // Limpia el intervalo cuando el componente se desmonta
-    return () => clearInterval(timerId)
-  }, [])
+  // Mostrar inmediatamente la hora (sin segundos)
+  update();
+
+  // Calcular ms hasta el inicio del siguiente minuto
+  const now = new Date();
+  const msUntilNextMinute =
+    (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+
+  let intervalId: ReturnType<typeof setInterval> | null = null;
+  const timeoutId = setTimeout(() => {
+    // Al llegar al siguiente minuto: actualizar y luego hacerlo cada 60s
+    update();
+    intervalId = setInterval(update, 60 * 1000);
+  }, msUntilNextMinute);
+
+  return () => {
+    clearTimeout(timeoutId);
+    if (intervalId) clearInterval(intervalId);
+  };
+}, []);
+
+     // Esta función solo abre el diálogo
+  const handleLogoutClick = () => {
+    setShowLogoutDialog(true)
+  }
+
+  // 3. Esta función ejecuta la lógica real (se llama al confirmar)
+  const handleConfirmLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      // Cerramos el diálogo inmediatamente para mostrar el estado de carga en el botón si quisiéramos,
+      // o lo dejamos abierto con loading. En este caso, cerramos el diálogo y mostramos loading en UI general si fuera necesario.
+      // Pero como es rápido, simplemente procedemos.
+      
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        throw error
+      }
+
+      toast.success("Sesión cerrada correctamente")
+      router.push("/login")
+      router.refresh()
+
+    } catch (error) {
+      console.error("Error al salir:", error)
+      toast.error("Error al cerrar sesión")
+      setIsLoggingOut(false) // Solo reseteamos si falló
+    } finally {
+      setShowLogoutDialog(false)
+    }
+  }
+
+  // --- FUNCIÓN DE CERRAR SESIÓN ---
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+
+      // 1. Cerrar sesión en Supabase (borra cookies y tokens)
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
+      }
+
+      // 2. Feedback visual
+      toast.success("Sesión cerrada correctamente");
+
+      // 3. Redirigir al login
+      router.push("/login");
+      router.refresh(); // Importante: refresca para limpiar caché de rutas protegidas
+    } catch (error) {
+      console.error("Error al salir:", error);
+      toast.error("Error al cerrar sesión");
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <>
@@ -36,13 +128,43 @@ export function AppHeader() {
 
         {/* Lado Derecho: Botón de Salir */}
         <div>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogoutClick}
+            disabled={isLoggingOut}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar Sesión
           </Button>
         </div>
       </header>
+
       <Separator />
+    
+    {/* 4. El componente Alert Dialog */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de salir del sistema. Tendrás que ingresar tus credenciales nuevamente para acceder.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoggingOut}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmLogout} 
+              disabled={isLoggingOut}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLoggingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sí, salir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
-  )
+  );
 }

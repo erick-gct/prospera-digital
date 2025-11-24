@@ -1,7 +1,7 @@
 // En: client/app/(auth)/login/page.tsx
-'use client'; // Marcamos como Client Component para manejar el estado del formulario
+"use client"; // Marcamos como Client Component para manejar el estado del formulario
 
-import Link from 'next/link';
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -9,32 +9,31 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
 
 // --- 1. Imports necesarios ---
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/cliente" // Nuestro helper
-import { toast } from "sonner"
-import { AlertTriangle, Loader2 } from "lucide-react"
-
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/cliente"; // Nuestro helper
+import { toast } from "sonner";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-// --- 2. Estado de carga y router ---
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  // --- 2. Estado de carga y router ---
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-      setIsLoading(true)
+    setIsLoading(true);
 
-        // --- 3. Lógica de Supabase ---
-    const supabase = createClient()
+    // --- 3. Lógica de Supabase ---
+    const supabase = createClient();
     try {
       // --- 3. Lógica de FETCH a tu API de NestJS ---
       const response = await fetch("http://localhost:3001/auth/login", {
@@ -43,13 +42,13 @@ export default function LoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
         // Si NestJS nos da un error (ej. 401 Unauthorized), lo lanzamos
-        throw new Error(data.message || "Error al iniciar sesión")
+        throw new Error(data.message || "Error al iniciar sesión");
       }
 
       // 4. ¡ÉXITO! NestJS nos devuelve la sesión
@@ -57,33 +56,37 @@ export default function LoginPage() {
       if (data.session) {
         // 5. Entregamos la sesión a la librería de Supabase (SSR)
         // Esto guardará las cookies de autenticación en el navegador
-        const { error: sessionError } = await supabase.auth.setSession(data.session)
-        
+        const { error: sessionError } = await supabase.auth.setSession(
+          data.session
+        );
+
         if (sessionError) {
-          throw new Error(`Error al guardar la sesión: ${sessionError.message}`)
+          throw new Error(
+            `Error al guardar la sesión: ${sessionError.message}`
+          );
         }
 
-        console.log("¡Inicio de sesión exitoso!", data.user)
-        toast.success(`Bienvenido, ${data.user.email}`)
+        console.log("¡Inicio de sesión exitoso!", data.user);
+        toast.success(`Bienvenido, ${data.user.user_metadata.full_name}`);
 
         // Redirige al dashboard y refresca
-        router.push("/dashboard")
-        router.refresh()
+        router.push("/dashboard");
+        router.refresh();
       } else {
-        throw new Error("Respuesta inválida del servidor")
+        throw new Error("Respuesta inválida del servidor");
       }
-
     } catch (error) {
       // 6. Manejo de Error (de red o de NestJS)
-      console.error("Error de Login:", error)
+      console.error("Error de Login:", error);
       toast.error("Error al iniciar sesión", {
-        description: (error as Error).message || "Las credenciales son incorrectas.",
+        description:
+          (error as Error).message || "Las credenciales son incorrectas.",
         icon: <AlertTriangle className="h-5 w-5" />,
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-    
+
     console.log({ email, password });
   };
 
@@ -129,7 +132,7 @@ export default function LoginPage() {
           </Button>
 
           <div className="text-center text-sm text-muted-foreground">
-            ¿No tienes una cuenta?{' '}
+            ¿No tienes una cuenta?{" "}
             <Link
               href="/register"
               className="font-semibold text-primary underline-offset-4 hover:underline"

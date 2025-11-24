@@ -15,7 +15,10 @@ import {
   CalendarPlus,
   CalendarCheck,
   PanelLeft, // Icono para el logo/nombre
+  Stethoscope,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/cliente"
 
 // Definimos la estructura de un enlace del sidebar
 type NavLink = {
@@ -51,46 +54,74 @@ interface AppSidebarProps {
 export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
   const pathname = usePathname();
 
+  // Estado para guardar el nombre (inicia genérico mientras carga)
+  const [userName, setUserName] = useState("Paciente")
+
+    useEffect(() => {
+    const getUserName = async () => {
+      const supabase = createClient()
+      // 1. Obtenemos el usuario de la sesión actual (caché local)
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // 2. Si existe y tiene metadata, sacamos el nombre
+      if (user?.user_metadata?.full_name) {
+        // Opcional: Si el nombre es muy largo, podrías tomar solo el primer nombre
+        // const primerNombre = user.user_metadata.full_name.split(' ')[0]
+        setUserName(user.user_metadata.full_name)
+      }
+    }
+
+    getUserName()
+  }, [])
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex h-full flex-col bg-background",
-          !isCollapsed && "w-56" // Ancho cuando está expandido
+          "flex h-full flex-col bg-background transition-all duration-300",
+          !isCollapsed ? "w-full" : "items-center" // Ancho cuando está expandido
         )}
       >
-        {/* Logo/Nombre */}
+        {/* HEADER DEL SLIDEBAR */}
         <div
           className={cn(
             "flex h-16 items-center border-b px-4",
             isCollapsed ? "justify-center" : "justify-between"
           )}
         >
-          <Link
-            href="/dashboard"
-            className={cn(
-              "text-lg font-bold text-primary",
-              isCollapsed && "hidden"
-            )}
+          {/* Si está expandido: Mostramos el saludo.
+                Si está colapsado: Solo el ícono
+          */}
+          {!isCollapsed && (
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Stethoscope className="h-4 w-4" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground">Bienvenido,</span>
+                  <span className="text-sm font-bold text-foreground truncate max-w-[120px]" title={userName}>
+                  {userName}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Botón de Toggle (Colapsar/Expandir) */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onToggle} 
+            className={cn("shrink-0", isCollapsed && "h-10 w-10")}
           >
-            {!isCollapsed && <span>Podología</span>}
-          </Link>
-          {/* 6. El icono es ahora un botón que llama a 'onToggle' */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-            className="shrink-0"
-          >
-            <PanelLeft className="h-6 w-6" />
-            <span className="sr-only">Toggle sidebar</span>
+            <PanelLeft className="h-5 w-5 text-muted-foreground" />
+            <span className="sr-only">Alternar menú</span>
           </Button>
         </div>
 
         {/* Navegación Principal */}
         <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
           {navLinks.map((link) => {
-            const isActive = pathname.startsWith(link.href);
+            const isActive = pathname === link.href // Coincidencia exacta o startsWith según prefieras
 
             // Si está colapsado, mostramos Tooltip
             if (isCollapsed) {
@@ -120,12 +151,12 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
                   isActive &&
-                    "bg-primary text-primary-foreground hover:bg-primary/90"
+                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                 )}
               >
-                <link.icon className="h-5 w-5" />
+                <link.icon className="h-4 w-4" />
                 {link.label}
               </Link>
             );
