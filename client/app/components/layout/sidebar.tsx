@@ -16,9 +16,11 @@ import {
   CalendarCheck,
   PanelLeft, // Icono para el logo/nombre
   Stethoscope,
+  Activity,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/cliente"
+import { createClient } from "@/lib/supabase/cliente";
+import Image from "next/image"; // Importamos Image de Next.js
 
 // Definimos la estructura de un enlace del sidebar
 type NavLink = {
@@ -53,26 +55,26 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
   const pathname = usePathname();
+  const [userName, setUserName] = useState("Paciente");
 
-  // Estado para guardar el nombre (inicia genérico mientras carga)
-  const [userName, setUserName] = useState("Paciente")
-
-    useEffect(() => {
+  useEffect(() => {
     const getUserName = async () => {
-      const supabase = createClient()
+      const supabase = createClient();
       // 1. Obtenemos el usuario de la sesión actual (caché local)
-      const { data: { user } } = await supabase.auth.getUser()
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       // 2. Si existe y tiene metadata, sacamos el nombre
       if (user?.user_metadata?.full_name) {
         // Opcional: Si el nombre es muy largo, podrías tomar solo el primer nombre
-        // const primerNombre = user.user_metadata.full_name.split(' ')[0]
-        setUserName(user.user_metadata.full_name)
+        const primerNombre = user.user_metadata.full_name.split(" ")[0];
+        setUserName(primerNombre);
       }
-    }
+    };
 
-    getUserName()
-  }, [])
+    getUserName();
+  }, []);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -98,8 +100,13 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
                 <Stethoscope className="h-4 w-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-muted-foreground">Bienvenido,</span>
-                  <span className="text-sm font-bold text-foreground truncate max-w-[120px]" title={userName}>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Bienvenido,
+                </span>
+                <span
+                  className="text-sm font-bold text-foreground truncate max-w-[120px]"
+                  title={userName}
+                >
                   {userName}
                 </span>
               </div>
@@ -107,10 +114,10 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
           )}
 
           {/* Botón de Toggle (Colapsar/Expandir) */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onToggle} 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
             className={cn("shrink-0", isCollapsed && "h-10 w-10")}
           >
             <PanelLeft className="h-5 w-5 text-muted-foreground" />
@@ -121,7 +128,7 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
         {/* Navegación Principal */}
         <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href // Coincidencia exacta o startsWith según prefieras
+            const isActive = pathname === link.href; // Coincidencia exacta o startsWith según prefieras
 
             // Si está colapsado, mostramos Tooltip
             if (isCollapsed) {
@@ -162,6 +169,61 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
             );
           })}
         </nav>
+
+        {/* --- FOOTER DEL SIDEBAR (Nuevo) --- */}
+        <div className="mt-auto border-t p-4">
+          {!isCollapsed ? (
+            // Versión Expandida: Logo + Estado con texto
+            <div className="flex flex-col gap-3">
+              {/* Estado del Sistema */}
+              <div className="flex items-center gap-2 rounded-md bg-green-500/10 px-3 py-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-600"></span>
+                </span>
+                <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                  Sistema en línea
+                </span>
+              </div>
+
+              {/* Logo y Marca */}
+              <div className="flex items-center gap-3">
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-white">
+                  {/* Usamos tu imagen de assets */}
+                  <Image
+                    src="/assets/logo/logo-pie.ico"
+                    alt="Logo Prospera"
+                    fill
+                    className="object-contain p-1"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wide">
+                    Prospera
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    Digital LLC
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // Versión Colapsada: Solo el icono de estado
+            <div className="flex justify-center">
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-green-500/10">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-600"></span>
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">Sistema en línea</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+        </div>
       </aside>
     </TooltipProvider>
   );
