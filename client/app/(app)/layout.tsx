@@ -7,13 +7,13 @@ import {
   ResizablePanelGroup,
   type PanelRef, 
 } from "@/components/ui/resizable"
-import { useRef } from "react"
+import { useRef, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { AppSidebar } from "@/app/components/layout/sidebar"
 import { AppHeader } from "@/app/components/layout/header"
 import { AppFooter } from "@/app/components/layout/footer-app"
 // 1. Importar el Toaster
-import { Toaster } from "@/components/ui/sonner"
+
 
 export default function AppLayout({
   children,
@@ -25,6 +25,14 @@ export default function AppLayout({
 
   const panelRef = useRef<PanelRef>(null)
 
+    // 2. Estado para controlar si estamos en el cliente
+  const [isMounted, setIsMounted] = useState(false)
+
+    // 3. useEffect que solo corre en el navegador
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // 3. Creamos la función de toggle
   const toggleSidebar = () => {
     if (panelRef.current) {
@@ -34,6 +42,11 @@ export default function AppLayout({
         panelRef.current.collapse() // Usamos el método collapse()
       }
     }
+  }
+
+   // 4. Si no estamos montados aún, no renderizamos nada (evita el error de hidratación)
+  if (!isMounted) {
+    return null 
   }
   
   return (
@@ -48,14 +61,16 @@ export default function AppLayout({
         collapsedSize={4} // Tamaño en % cuando está colapsado
         minSize={15}      // Ancho mínimo
         maxSize={20}      // Ancho máximo
-        defaultSize={20}
+        defaultSize={18}
         onCollapse={() => {
           setIsCollapsed(true)
         }}
         onExpand={() => {
           setIsCollapsed(false)
         }}
-        className="h-full"
+        className={cn(
+          "transition-all duration-300 ease-in-out", // Animación suave
+        )}
       >
         {/* Pasamos el estado al componente Sidebar */}
         <AppSidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
@@ -65,7 +80,7 @@ export default function AppLayout({
       <ResizableHandle withHandle />
 
       {/* Panel 2: El Contenido Principal */}
-      <ResizablePanel defaultSize={80}>
+      <ResizablePanel defaultSize={82}>
         <div className="flex h-full flex-col">
           {/* 1. Header Fijo */}
           <AppHeader />
@@ -79,8 +94,7 @@ export default function AppLayout({
           <AppFooter />
         </div>
 
-         {/* 2. Añadir el Toaster aquí */}
-        <Toaster richColors position="bottom-right" />
+ 
       </ResizablePanel>
     </ResizablePanelGroup>
   )
