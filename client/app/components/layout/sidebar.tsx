@@ -56,6 +56,8 @@ interface AppSidebarProps {
 export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
   const pathname = usePathname();
   const [userName, setUserName] = useState("Paciente");
+  const [isBackendOnline, setIsBackendOnline] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const getUserName = async () => {
@@ -74,6 +76,36 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
     };
 
     getUserName();
+    // 2. Función para verificar el estado del Backend
+    const checkBackendStatus = async () => {
+      try {
+        // Hacemos un ping al endpoint raíz de tu API
+        // Usamos un timeout corto para que no se quede cargando eternamente si está caído
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seg timeout
+
+        const res = await fetch("http://localhost:3001/", {
+          method: "GET",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          setIsBackendOnline(true);
+        } else {
+          setIsBackendOnline(false);
+        }
+      } catch (error) {
+        // Si hay error de red (fetch failed) es que está caído
+        setIsBackendOnline(false);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+    // Ejecutar al montar
+    checkBackendStatus();
+    // Opcional: Re-verificar cada 30 segundos para actualizar en tiempo real
+    const interval = setInterval(checkBackendStatus, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -170,26 +202,51 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
           })}
         </nav>
 
-        {/* --- FOOTER DEL SIDEBAR (Nuevo) --- */}
+        {/* --- FOOTER DEL SIDEBAR  --- */}
         <div className="mt-auto border-t p-4">
           {!isCollapsed ? (
-            // Versión Expandida: Logo + Estado con texto
+            // Versión Expandida
             <div className="flex flex-col gap-3">
-              {/* Estado del Sistema */}
-              <div className="flex items-center gap-2 rounded-md bg-green-500/10 px-3 py-2">
+              {/* Estado del Sistema DINÁMICO */}
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
+                  isBackendOnline
+                    ? "bg-green-500/10" // Fondo verde si online
+                    : "bg-red-500/10" // Fondo rojo si offline
+                )}
+              >
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-600"></span>
+                  {/* Solo animamos el ping si está online */}
+                  {isBackendOnline && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                  )}
+                  <span
+                    className={cn(
+                      "relative inline-flex rounded-full h-2.5 w-2.5",
+                      isBackendOnline ? "bg-green-600" : "bg-red-600"
+                    )}
+                  ></span>
                 </span>
-                <span className="text-xs font-medium text-green-700 dark:text-green-400">
-                  Sistema en línea
+                <span
+                  className={cn(
+                    "text-xs font-medium",
+                    isBackendOnline
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-red-700 dark:text-red-400"
+                  )}
+                >
+                  {isChecking
+                    ? "Conectando..."
+                    : isBackendOnline
+                    ? "Sistema en línea"
+                    : "Sin conexión"}
                 </span>
               </div>
 
               {/* Logo y Marca */}
               <div className="flex items-center gap-3">
                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-white">
-                  {/* Usamos tu imagen de assets */}
                   <Image
                     src="/assets/logo/logo-pie.ico"
                     alt="Logo Prospera"
@@ -208,18 +265,36 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
               </div>
             </div>
           ) : (
-            // Versión Colapsada: Solo el icono de estado
+            // Versión Colapsada
             <div className="flex justify-center">
               <Tooltip>
                 <TooltipTrigger>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-green-500/10">
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-md",
+                      isBackendOnline ? "bg-green-500/10" : "bg-red-500/10"
+                    )}
+                  >
                     <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-600"></span>
+                      {isBackendOnline && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                      )}
+                      <span
+                        className={cn(
+                          "relative inline-flex rounded-full h-3 w-3",
+                          isBackendOnline ? "bg-green-600" : "bg-red-600"
+                        )}
+                      ></span>
                     </span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="right">Sistema en línea</TooltipContent>
+                <TooltipContent side="right">
+                  {isChecking
+                    ? "Verificando..."
+                    : isBackendOnline
+                    ? "Sistema en línea"
+                    : "Sin conexión al servidor"}
+                </TooltipContent>
               </Tooltip>
             </div>
           )}
