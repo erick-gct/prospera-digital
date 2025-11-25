@@ -32,6 +32,10 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import Image from "next/image";
+import { LottieAnimation } from "@/components/ui/lottie-animation";
+import doctorAnimation from "@/public/assets/animations/doctor-animation.json";
+import mainAnimation from "@/public/assets/animations/medicine-online.json";
 
 export default function HomePage() {
   const { ref: animatedListRef, isInView: isAnimatedListVisible } = useInView();
@@ -42,10 +46,19 @@ export default function HomePage() {
       <section className="h-screen w-full scroll-snap-align-start flex items-center bg-background text-foreground">
         <div className="container mx-auto grid grid-cols-1 items-center gap-8 md:grid-cols-2">
           {/* Lado Izquierdo: Placeholder para Imagen/Animación */}
-          <div className="flex h-[400px] w-full items-center justify-center rounded-lg bg-muted">
-            <span className="text-muted-foreground">
-              [Aquí va tu imagen/animación del pie]
-            </span>
+          <div className="flex h-[400px] w-full items-center justify-center rounded-lg  overflow-hidden">
+{/*             <Image
+              src="/assets/pie-homepage.gif"
+              alt="Animación del pie"
+              width={630}
+              height={570}
+              className="object-contain"
+              priority={false}
+            /> */}
+            <LottieAnimation
+              animationData={mainAnimation}
+              className="w-full h-full max-w-[500px]"
+            />
           </div>
 
           {/* Lado Derecho: Título y CTA */}
@@ -243,9 +256,10 @@ export default function HomePage() {
         <div className="container mx-auto grid grid-cols-1 items-center gap-12 md:grid-cols-2">
           {/* Lado Derecho: Placeholder para Imagen */}
           <div className="flex h-[400px] w-full items-center justify-center rounded-lg bg-muted">
-            <span className="text-muted-foreground">
-              [Aquí va tu imagen de un pie]
-            </span>
+            <LottieAnimation
+              animationData={doctorAnimation}
+              className="w-full h-full max-w-[500px]"
+            />
           </div>
 
           {/* Lado Izquierdo: Argumentos */}

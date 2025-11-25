@@ -17,6 +17,8 @@ import {
   PanelLeft, // Icono para el logo/nombre
   Stethoscope,
   Activity,
+  ChartPie,
+  Footprints,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/cliente";
@@ -32,7 +34,12 @@ type NavLink = {
 // Opciones del Paciente (expandible para el Podólogo en el futuro)
 const navLinks: NavLink[] = [
   {
-    href: "/dashboard/perfil",
+    href: "/dashboard",
+    label: "Resumen",
+    icon: ChartPie,
+  },
+  {
+    href: "/perfil",
     label: "Mi Perfil",
     icon: User,
   },
@@ -129,7 +136,7 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
           {!isCollapsed && (
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Stethoscope className="h-4 w-4" />
+                <Footprints  className="h-4 w-4" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-muted-foreground">

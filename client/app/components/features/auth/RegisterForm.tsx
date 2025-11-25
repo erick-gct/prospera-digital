@@ -28,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// Quitamos imports de Command que ya no se usan directamente aquí
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -39,17 +38,14 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  CheckCircle2, // Importamos el icono de éxito
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { toast } from "sonner";
-// Importamos el componente Combobox que creaste
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
-// Aseguramos el nombre correcto del archivo de Supabase
 import { createClient } from "@/lib/supabase/cliente";
-// Importamos los componentes de Alert Dialog
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// --- Definición de pasos con Stepperize ---
+// --- Definición de pasos ---
 const { useStepper } = defineStepper(
   { id: "step-1", title: "Información Personal" },
   { id: "step-2", title: "Cuenta" },
@@ -77,15 +73,16 @@ export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Nuevo estado para errores de validación
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // --- ESTADO PARA LOS CATÁLOGOS ---
   const [paisesOptions, setPaisesOptions] = useState<ComboboxOption[]>([]);
   const [tiposSangreOptions, setTiposSangreOptions] = useState<
     { id: number; nombre: string }[]
   >([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(true);
 
-  // --- Estado del formulario ---
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
@@ -101,11 +98,10 @@ export function RegisterForm() {
     enfermedades: "",
   });
 
-  // --- CARGAR DATOS DE LA API ---
+  // --- CARGAR DATOS ---
   useEffect(() => {
     const fetchCatalogs = async () => {
       try {
-        // 1. Países
         const resPaises = await fetch("http://localhost:3001/common/paises");
         if (resPaises.ok) {
           const dataPaises = await resPaises.json();
@@ -119,7 +115,6 @@ export function RegisterForm() {
           }
         }
 
-        // 2. Tipos de Sangre
         const resSangre = await fetch(
           "http://localhost:3001/common/tipos-sangre"
         );
@@ -131,77 +126,126 @@ export function RegisterForm() {
         }
       } catch (error) {
         console.error("Error cargando catálogos:", error);
-        toast.error("Error de conexión", {
-          description: "No se pudieron cargar las listas desplegables.",
-        });
       } finally {
         setLoadingCatalogs(false);
       }
     };
-
     fetchCatalogs();
   }, []);
 
-  // Variables de Progreso
-  const currentStepIndex = stepper.all.findIndex(
-    (step) => step.id === stepper.current?.id
-  );
-  const hasPrevStep = currentStepIndex > 0;
-  const isLastStep = currentStepIndex === stepper.all.length - 1;
-  const progressValue = ((currentStepIndex + 1) / stepper.all.length) * 100;
-
-  // --- MANEJADORES ---
+  // --- HANDLERS ---
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Limpiar error al escribir
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
   const handleDateChange = (date: Date | undefined) => {
     setFormData((prev) => ({ ...prev, fechaNacimiento: date }));
+    if (errors.fechaNacimiento && date) {
+       setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.fechaNacimiento;
+        return newErrors;
+      });
+    }
   };
 
   const handleCountryChange = (valueAsString: string) => {
     setFormData((prev) => ({ ...prev, paisId: Number(valueAsString) }));
+    if (errors.paisId) {
+        setErrors((prev) => { const n = {...prev}; delete n.paisId; return n; });
+    }
   };
 
   const handleBloodTypeChange = (valueAsString: string) => {
     setFormData((prev) => ({ ...prev, tipoSangreId: Number(valueAsString) }));
+    if (errors.tipoSangreId) {
+        setErrors((prev) => { const n = {...prev}; delete n.tipoSangreId; return n; });
+    }
   };
 
-  // --- HELPERS PARA EL RESUMEN ---
-  const getPaisLabel = () => {
-    return (
-      paisesOptions.find((p) => Number(p.value) === formData.paisId)?.label ||
-      "No seleccionado"
-    );
+  // --- VALIDACIÓN ---
+  const validateStep = (stepId: string) => {
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
+    if (stepId === "step-1") {
+      if (!formData.nombre.trim()) newErrors.nombre = "El nombre es obligatorio.";
+      if (!formData.apellido.trim()) newErrors.apellido = "El apellido es obligatorio.";
+      if (!formData.cedula.trim()) newErrors.cedula = "La cédula es obligatoria.";
+      if (!formData.fechaNacimiento) newErrors.fechaNacimiento = "La fecha es obligatoria.";
+    }
+
+    if (stepId === "step-2") {
+      // Validación de Email con Regex
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!formData.email.trim()) {
+        newErrors.email = "El email es obligatorio.";
+      } else if (!emailRegex.test(formData.email)) {
+        newErrors.email = "Ingresa un correo válido (ej: usuario@dominio.com).";
+      }
+
+      if (!formData.password) {
+        newErrors.password = "La contraseña es obligatoria.";
+      } else if (formData.password.length < 8) {
+        newErrors.password = "La contraseña debe tener al menos 8 caracteres.";
+      }
+    }
+
+    if (stepId === "step-3") {
+      if (!formData.paisId) newErrors.paisId = "El país es obligatorio.";
+      if (!formData.ciudad.trim()) newErrors.ciudad = "La ciudad es obligatoria.";
+      if (!formData.direccion.trim()) newErrors.direccion = "La dirección es obligatoria.";
+      if (!formData.telefono.trim()) newErrors.telefono = "El teléfono es obligatorio.";
+    }
+
+    if (stepId === "step-4") {
+      if (!formData.tipoSangreId) newErrors.tipoSangreId = "El tipo de sangre es obligatorio.";
+      // Enfermedades es opcional, no validamos nada aquí.
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      isValid = false;
+      toast.error("Por favor completa los campos requeridos.");
+    } else {
+      setErrors({}); // Limpiar errores si todo está bien
+    }
+
+    return isValid;
   };
 
-  const getTipoSangreLabel = () => {
-    return (
-      tiposSangreOptions.find((t) => t.id === formData.tipoSangreId)?.nombre ||
-      "No seleccionado"
-    );
+  // --- NAVEGACIÓN ---
+  const handleNext = () => {
+    // Validar el paso actual antes de avanzar
+    if (stepper.current && validateStep(stepper.current.id)) {
+      stepper.next();
+    }
   };
 
-  // --- FLUJO DE ENVÍO ---
-
-  // 1. Abrir Resumen
   const handleOpenSummary = () => {
-    // Aquí puedes validar campos obligatorios si deseas
-    setShowSummary(true);
+    // Validar el último paso antes de abrir el resumen
+    if (validateStep("step-4")) {
+      setShowSummary(true);
+    }
   };
 
-  // 2. Confirmar y Enviar a API
   const handleConfirmRegistration = async () => {
     setShowSummary(false);
     setIsLoading(true);
     const supabase = createClient();
 
     try {
-      console.log("Enviando DTO:", formData);
-
       const response = await fetch("http://localhost:3001/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -212,12 +256,11 @@ export function RegisterForm() {
 
       if (!response.ok) throw new Error(data.message || "Error al registrar");
 
-      // Guardar sesión si existe
       if (data.session) {
         await supabase.auth.setSession(data.session);
       }
 
-      setShowSuccess(true); // Mostrar éxito
+      setShowSuccess(true);
     } catch (error) {
       toast.error("Error al crear la cuenta", {
         description: (error as Error).message,
@@ -228,10 +271,29 @@ export function RegisterForm() {
     }
   };
 
-  // 3. Redirigir
   const handleFinish = () => {
     setShowSuccess(false);
     router.push("/login");
+  };
+
+  const currentStepIndex = stepper.all.findIndex(
+    (step) => step.id === stepper.current?.id
+  );
+  const hasPrevStep = currentStepIndex > 0;
+  const isLastStep = currentStepIndex === stepper.all.length - 1;
+  const progressValue = ((currentStepIndex + 1) / stepper.all.length) * 100;
+
+  // Helpers para el resumen
+  const getPaisLabel = () =>
+    paisesOptions.find((p) => Number(p.value) === formData.paisId)?.label || "No seleccionado";
+  const getTipoSangreLabel = () =>
+    tiposSangreOptions.find((t) => t.id === formData.tipoSangreId)?.nombre || "No seleccionado";
+
+  // Componente Helper para mostrar error
+  const ErrorMessage = ({ field }: { field: string }) => {
+    return errors[field] ? (
+      <p className="text-xs text-red-500 font-medium mt-1">{errors[field]}</p>
+    ) : null;
   };
 
   return (
@@ -247,7 +309,6 @@ export function RegisterForm() {
         </CardHeader>
 
         <CardContent className="space-y-8">
-          {/* Barra de Progreso */}
           <div className="space-y-2">
             <Progress value={progressValue} className="h-2" />
             <p className="text-xs text-muted-foreground text-center">
@@ -255,7 +316,6 @@ export function RegisterForm() {
             </p>
           </div>
 
-          {/* Stepper Visual (Tu diseño original) */}
           <div className="relative">
             <div className="flex items-center justify-between">
               {stepper.all.map((step, index) => {
@@ -309,53 +369,55 @@ export function RegisterForm() {
             </div>
           </div>
 
-          {/* Formulario */}
           <form className="space-y-4">
-            {/* STEP 1 */}
             {stepper.when("step-1", () => (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
                 <div className="space-y-2">
-                  <Label htmlFor="nombre">Nombre</Label>
+                  <Label htmlFor="nombre" className={errors.nombre ? "text-red-500" : ""}>Nombre</Label>
                   <Input
                     id="nombre"
                     name="nombre"
                     value={formData.nombre}
                     onChange={handleChange}
                     placeholder="Ej: Juan"
-                    required
+                    className={errors.nombre ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  <ErrorMessage field="nombre" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="apellido">Apellido</Label>
+                  <Label htmlFor="apellido" className={errors.apellido ? "text-red-500" : ""}>Apellido</Label>
                   <Input
                     id="apellido"
                     name="apellido"
                     value={formData.apellido}
                     onChange={handleChange}
                     placeholder="Ej: Pérez"
-                    required
+                    className={errors.apellido ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                   <ErrorMessage field="apellido" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cedula">Cédula</Label>
+                  <Label htmlFor="cedula" className={errors.cedula ? "text-red-500" : ""}>Cédula</Label>
                   <Input
                     id="cedula"
                     name="cedula"
                     value={formData.cedula}
                     onChange={handleChange}
                     placeholder="Ej: 0123456789"
-                    required
+                    className={errors.cedula ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                   <ErrorMessage field="cedula" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fechaNacimiento">Fecha de Nacimiento</Label>
+                  <Label htmlFor="fechaNacimiento" className={errors.fechaNacimiento ? "text-red-500" : ""}>Fecha de Nacimiento</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant={"outline"}
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !formData.fechaNacimiento && "text-muted-foreground"
+                          !formData.fechaNacimiento && "text-muted-foreground",
+                          errors.fechaNacimiento && "border-red-500 text-red-500 hover:text-red-500"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -378,15 +440,15 @@ export function RegisterForm() {
                       />
                     </PopoverContent>
                   </Popover>
+                  <ErrorMessage field="fechaNacimiento" />
                 </div>
               </div>
             ))}
 
-            {/* STEP 2 */}
             {stepper.when("step-2", () => (
               <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Correo Electrónico</Label>
+                  <Label htmlFor="email" className={errors.email ? "text-red-500" : ""}>Correo Electrónico</Label>
                   <Input
                     id="email"
                     name="email"
@@ -394,11 +456,12 @@ export function RegisterForm() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="ejemplo@correo.com"
-                    required
+                    className={errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  <ErrorMessage field="email" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
+                  <Label htmlFor="password" className={errors.password ? "text-red-500" : ""}>Contraseña</Label>
                   <Input
                     id="password"
                     name="password"
@@ -406,53 +469,59 @@ export function RegisterForm() {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Mínimo 8 caracteres"
-                    required
+                    className={errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                   <ErrorMessage field="password" />
                 </div>
               </div>
             ))}
 
-            {/* STEP 3 - AQUÍ ESTÁ EL CAMBIO CLAVE */}
             {stepper.when("step-3", () => (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
                 <div className="space-y-2">
-                  <Label htmlFor="pais">País</Label>
+                  <Label htmlFor="pais" className={errors.paisId ? "text-red-500" : ""}>País</Label>
                   {loadingCatalogs ? (
                     <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
                   ) : (
-                    // USAMOS EL COMPONENTE COMBOBOX - SIN ERRORES
-                    <Combobox
-                      options={paisesOptions}
-                      value={formData.paisId?.toString() || ""}
-                      onValueChange={handleCountryChange}
-                      placeholder="Selecciona un país..."
-                      searchPlaceholder="Buscar país..."
-                      emptyPlaceholder="País no encontrado."
-                    />
+                    <div className={errors.paisId ? "border rounded-md border-red-500" : ""}>
+                        <Combobox
+                        options={paisesOptions}
+                        value={formData.paisId?.toString() || ""}
+                        onValueChange={handleCountryChange}
+                        placeholder="Selecciona un país..."
+                        searchPlaceholder="Buscar país..."
+                        emptyPlaceholder="País no encontrado."
+                        />
+                    </div>
                   )}
+                   <ErrorMessage field="paisId" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ciudad">Ciudad</Label>
+                  <Label htmlFor="ciudad" className={errors.ciudad ? "text-red-500" : ""}>Ciudad</Label>
                   <Input
                     id="ciudad"
                     name="ciudad"
                     value={formData.ciudad}
                     onChange={handleChange}
                     placeholder="Ej: Quito"
+                    className={errors.ciudad ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                   <ErrorMessage field="ciudad" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="direccion">Dirección</Label>
+                  <Label htmlFor="direccion" className={errors.direccion ? "text-red-500" : ""}>Dirección</Label>
                   <Input
                     id="direccion"
                     name="direccion"
                     value={formData.direccion}
                     onChange={handleChange}
                     placeholder="Ej: Av. Principal 123"
+                    className={errors.direccion ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                   <ErrorMessage field="direccion" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Label htmlFor="telefono" className={errors.telefono ? "text-red-500" : ""}>Teléfono</Label>
                   <Input
                     id="telefono"
                     name="telefono"
@@ -460,21 +529,22 @@ export function RegisterForm() {
                     value={formData.telefono}
                     onChange={handleChange}
                     placeholder="Ej: +593 99 123 4567"
+                    className={errors.telefono ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                   <ErrorMessage field="telefono" />
                 </div>
               </div>
             ))}
 
-            {/* STEP 4 */}
             {stepper.when("step-4", () => (
               <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="space-y-2">
-                  <Label htmlFor="tipoSangre">Tipo de Sangre</Label>
+                  <Label htmlFor="tipoSangre" className={errors.tipoSangreId ? "text-red-500" : ""}>Tipo de Sangre</Label>
                   <Select
                     onValueChange={handleBloodTypeChange}
                     value={formData.tipoSangreId?.toString() || ""}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={errors.tipoSangreId ? "border-red-500 focus:ring-red-500" : ""}>
                       <SelectValue placeholder="Selecciona tu tipo de sangre" />
                     </SelectTrigger>
                     <SelectContent>
@@ -485,6 +555,7 @@ export function RegisterForm() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <ErrorMessage field="tipoSangreId" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="enfermedades">
@@ -516,7 +587,6 @@ export function RegisterForm() {
               Atrás
             </Button>
 
-            {/* Indicador de Paginación (Tu versión de puntos) */}
             <div className="flex items-center gap-1">
               {stepper.all.map((_, index) => (
                 <div
@@ -535,14 +605,14 @@ export function RegisterForm() {
 
             {isLastStep ? (
               <Button
-                onClick={handleOpenSummary} // Abrir Resumen
+                onClick={handleOpenSummary}
                 disabled={isLoading}
                 className="gap-2"
               >
                 Finalizar Registro
               </Button>
             ) : (
-              <Button onClick={() => stepper.next()} className="gap-2">
+              <Button onClick={handleNext} className="gap-2">
                 Siguiente
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -551,20 +621,17 @@ export function RegisterForm() {
         </CardFooter>
       </Card>
 
-      {/* --- DIÁLOGO DE RESUMEN (Todos los campos menos password) --- */}
       <AlertDialog open={showSummary} onOpenChange={setShowSummary}>
         <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Revisa tu información</AlertDialogTitle>
             <AlertDialogDescription>
               Verifica que los datos sean correctos antes de crear tu cuenta.
-              (Podrás editar cierta información después).
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="grid gap-4 py-4 text-sm border rounded-lg p-4 bg-muted/20 max-h-[60vh] overflow-y-auto">
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-              {/* Información Personal */}
               <div className="font-semibold text-muted-foreground">Nombre:</div>
               <div>
                 {formData.nombre} {formData.apellido}
@@ -582,11 +649,9 @@ export function RegisterForm() {
                   : "-"}
               </div>
 
-              {/* Cuenta */}
               <div className="font-semibold text-muted-foreground">Email:</div>
               <div className="break-all">{formData.email}</div>
 
-              {/* Ubicación */}
               <div className="font-semibold text-muted-foreground">País:</div>
               <div>{getPaisLabel()}</div>
 
@@ -603,7 +668,6 @@ export function RegisterForm() {
               </div>
               <div>{formData.telefono}</div>
 
-              {/* Salud */}
               <div className="font-semibold text-muted-foreground">Sangre:</div>
               <div>{getTipoSangreLabel()}</div>
 
@@ -630,7 +694,6 @@ export function RegisterForm() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* --- DIÁLOGO DE ÉXITO --- */}
       <AlertDialog open={showSuccess}>
         <AlertDialogContent className="max-w-md text-center">
           <div className="flex justify-center mb-4">

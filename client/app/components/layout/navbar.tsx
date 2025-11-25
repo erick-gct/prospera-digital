@@ -43,7 +43,7 @@ export function PublicNavbar() {
               asChild
               className={navigationMenuTriggerStyle()}
             >
-              <Link href="/about">Acerca del Podólogo</Link>
+              <Link href="/info-podologo">Acerca del Podólogo</Link>
             </NavigationMenuLink>
           </NavigationMenuItem>
 
@@ -53,7 +53,7 @@ export function PublicNavbar() {
               asChild
               className={navigationMenuTriggerStyle()}
             >
-              <Link href="/login">Información del Consultorio</Link>
+              <Link href="/info-consultorio">Información del Consultorio</Link>
             </NavigationMenuLink>
           </NavigationMenuItem>
 
