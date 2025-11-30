@@ -54,6 +54,12 @@ export default function LoginPage() {
       // 4. ¡ÉXITO! NestJS nos devuelve la sesión
       // data.session contiene el access_token y refresh_token
       if (data.session) {
+        // 1. Guardar sesión de Supabase (cookies de auth)
+       
+       // await supabase.auth.setSession(data.session);
+        // 2. Guardar el ROL explícito (ej. en cookie separada o localStorage)
+      // Esto nos ayudará en el middleware y sidebar
+      //document.cookie = `user_role=${data.role}; path=/; max-age=3600; SameSite=Lax`;
         // 5. Entregamos la sesión a la librería de Supabase (SSR)
         // Esto guardará las cookies de autenticación en el navegador
         const { error: sessionError } = await supabase.auth.setSession(
@@ -64,6 +70,10 @@ export default function LoginPage() {
           throw new Error(
             `Error al guardar la sesión: ${sessionError.message}`
           );
+        }
+        // Lo guardamos en localStorage para que el Sidebar lo lea rápido
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user_role', data.role || 'PACIENTE');
         }
 
         console.log("¡Inicio de sesión exitoso!", data.user);

@@ -5,7 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
-
+import { PatientModule } from './patient/patient.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -13,6 +13,7 @@ import { CommonModule } from './common/common.module';
     }),
     AuthModule,
     CommonModule,
+    PatientModule,
   ],
   controllers: [AppController],
   providers: [AppService],

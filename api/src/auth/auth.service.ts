@@ -1,8 +1,9 @@
 import {
   Injectable,
-  InternalServerErrorException,
   UnauthorizedException,
+  InternalServerErrorException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -12,14 +13,12 @@ import { RegisterDto } from './dto/register.dto';
 export class AuthService {
   private supabase: SupabaseClient;
 
-  // El 'constructor' se ejecuta primero
   constructor(private configService: ConfigService) {
-    // 1. Leemos las variables del archivo 'api/.env' que creamos
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseKey = this.configService.get<string>(
       'SUPABASE_SERVICE_ROLE_KEY',
     );
-    // 2. Verificamos que las variables existan
+
     if (!supabaseUrl || !supabaseKey) {
       throw new InternalServerErrorException(
         'Faltan las variables de entorno de Supabase (URL o KEY)',
@@ -30,11 +29,9 @@ export class AuthService {
     this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
-  // 3. Creamos la función para iniciar sesión
   async signIn(email: string, password: string): Promise<any> {
     console.log(`(API) Intentando login para: ${email}`);
-
-    // 4. Usamos la función de Supabase Auth
+    // 1. Login en Auth
     const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
       password,
@@ -42,21 +39,63 @@ export class AuthService {
 
     if (error) {
       console.error('(API) Error en Supabase Auth:', error.message);
-      // Si falla, lanzamos un error 401 (No Autorizado)
-      throw new UnauthorizedException(error.message);
+      throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    console.log('(API) Éxito:', data.user.email);
-    // Si tiene éxito, devolvemos los datos del usuario
-    return data;
+    // 2. Determinar el Rol
+    const userId = data.user.id;
+    let role = 'DESCONOCIDO';
+
+    // A. ¿Es Podólogo?
+    const { data: podologo } = await this.supabase
+      .from('podologo')
+      .select('usuario_id')
+      .eq('usuario_id', userId)
+      .maybeSingle();
+
+    if (podologo) {
+      role = 'PODOLOGO';
+    } else {
+      // B. ¿Es Paciente?
+      const { data: paciente } = await this.supabase
+        .from('paciente')
+        .select('usuario_id, estado_paciente_id')
+        .eq('usuario_id', userId)
+        .maybeSingle();
+
+      if (paciente) {
+        // --- VALIDACIÓN DE ESTADO ---
+        // Si el estado es 1 = Activo. Si es diferente, bloqueamos.
+        if (paciente.estado_paciente_id !== 1) {
+          console.warn(
+            `(API) Usuario ${email} intentó entrar pero está INACTIVO (Estado: ${paciente.estado_paciente_id})`,
+          );
+          // Opcional: Cerrar la sesión que acabamos de abrir en Supabase para no dejar "cabos sueltos"
+          await this.supabase.auth.signOut();
+
+          throw new ForbiddenException(
+            'Tu cuenta está inactiva o suspendida. Por favor contacta al consultorio.',
+          );
+        }
+        role = 'PACIENTE';
+      }
+    }
+
+    console.log(`(API) Login exitoso. Rol detectado: ${role}`);
+
+    // 3. Devolver todo junto
+    return {
+      ...data, // session y user
+      role,
+    };
   }
 
-  // (Aquí crearemos la función de registro 'signUp' más adelante)
   async register(registerDto: RegisterDto): Promise<any> {
-    console.log(`(API) Registrando: ${registerDto.email}`);
+    // ... (código de registro existente sin cambios) ...
+    // (Solo copio el inicio para contexto, el resto se mantiene igual)
+    console.log(`(API) Registrando nuevo usuario: ${registerDto.email}`);
 
-    // --- 1. VALIDACIÓN DE UNICIDAD (Nuevo Bloque) ---
-    // Consultamos si ya existe alguien con esa cédula O ese email en la tabla 'paciente'
+    // --- VALIDACIÓN DE UNICIDAD ---
     const { data: existingUsers, error: checkError } = await this.supabase
       .from('paciente')
       .select('cedula, email')
@@ -64,12 +103,9 @@ export class AuthService {
 
     if (checkError) {
       console.error('(API) Error verificando duplicados:', checkError);
-      throw new InternalServerErrorException(
-        'Error al verificar datos existentes.',
-      );
+      throw new InternalServerErrorException('Error verificando datos.');
     }
 
-    // Si el array tiene elementos, hay conflicto
     if (existingUsers && existingUsers.length > 0) {
       const match = existingUsers[0];
       if (match.cedula === registerDto.cedula) {
@@ -83,25 +119,34 @@ export class AuthService {
         );
       }
     }
-    // -----------------------------------------------
 
-    // 1. Crear Auth User
+    // 1. Crear el usuario en Supabase Auth
     const { data: authData, error: authError } =
       await this.supabase.auth.signUp({
         email: registerDto.email,
         password: registerDto.password,
         options: {
-          data: { full_name: `${registerDto.nombre} ${registerDto.apellido}` },
+          data: {
+            full_name: `${registerDto.nombre} ${registerDto.apellido}`,
+          },
         },
       });
 
-    if (authError) throw new BadRequestException(authError.message);
-    if (!authData.user)
-      throw new InternalServerErrorException('Error creando usuario Auth');
+    if (authError) {
+      console.error('(API) Error creando usuario Auth:', authError.message);
+      throw new BadRequestException(authError.message);
+    }
+
+    if (!authData.user) {
+      throw new InternalServerErrorException(
+        'No se pudo crear el usuario en Auth',
+      );
+    }
 
     const userId = authData.user.id;
+    console.log(`(API) Usuario Auth creado ID: ${userId}. Creando perfil...`);
 
-    // 2. Insertar en 'paciente' con IDs reales
+    // 2. Insertar el perfil en la tabla 'paciente'
     const { error: dbError } = await this.supabase.from('paciente').insert({
       usuario_id: userId,
       email: registerDto.email,
@@ -113,31 +158,30 @@ export class AuthService {
       direccion: registerDto.direccion,
       telefono: registerDto.telefono,
       enfermedades: registerDto.enfermedades,
-      // --- CAMPOS VINCULADOS ---
-      pais_id: registerDto.paisId, // ID real del país
-      tipo_sangre_id: registerDto.tipoSangreId, // ID real del tipo de sangre
-      estado_paciente_id: 1, // <-- POR DEFECTO: 1 (Activo)
+      pais_id: registerDto.paisId,
+      tipo_sangre_id: registerDto.tipoSangreId,
+      estado_paciente_id: 1,
       fecha_creacion: new Date(),
     });
 
     if (dbError) {
-      console.error('(API) Error DB:', dbError);
-      // Opcional: rollback del usuario auth aquí
-      // Si falla la creación del perfil, borramos el usuario de Auth para no dejar "huérfanos"
+      console.error('(API) Error insertando en tabla paciente:', dbError);
       await this.supabase.auth.admin.deleteUser(userId);
 
-      // Si el error de base de datos es por duplicado (por si acaso pasó la validación 1)
-      if (dbError.code === '23505') { // Código PostgreSQL para Unique Violation
-        throw new BadRequestException(
-          'Ya existe un registro con estos datos (Cédula o Email).',
-        );
+      if (dbError.code === '23505') {
+        throw new BadRequestException('Ya existe un registro con estos datos.');
       }
 
       throw new InternalServerErrorException(
-        `Error al crear perfil: ${dbError.message}`,
+        `Error al crear perfil de paciente: ${dbError.message}`
       );
     }
 
-    return authData;
+    console.log('(API) Perfil de paciente creado exitosamente.');
+    // Al registrarse, por defecto es PACIENTE (o podrías devolverlo explícito también)
+    return {
+      ...authData,
+      role: 'PACIENTE',
+    };
   }
 }
