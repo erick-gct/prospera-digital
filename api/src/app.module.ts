@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
 import { PatientModule } from './patient/patient.module';
+import { PodologoModule } from './podologo/podologo.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -14,6 +16,7 @@ import { PatientModule } from './patient/patient.module';
     AuthModule,
     CommonModule,
     PatientModule,
+    PodologoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

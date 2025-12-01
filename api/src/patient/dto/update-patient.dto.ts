@@ -3,7 +3,6 @@ export class UpdatePatientDto {
   nombres?: string;
   apellidos?: string;
   fechaNacimiento?: string;
-  
   // Ubicación
   paisId?: number;
   ciudad?: string;

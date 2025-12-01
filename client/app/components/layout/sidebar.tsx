@@ -36,7 +36,7 @@ type NavLink = {
 // --- ENLACES PACIENTE ---
 const patientLinks: NavLink[] = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
-  { href: "/dashboard/perfil", label: "Mi Perfil", icon: User },
+  { href: "/perfil", label: "Mi Perfil", icon: User },
   { href: "/reserva-cita", label: "Agendar Cita", icon: CalendarPlus },
   { href: "/mis-citas", label: "Mis Citas", icon: CalendarCheck },
 ]
@@ -44,7 +44,7 @@ const patientLinks: NavLink[] = [
 // --- ENLACES PODÓLOGO ---
 const podiatristLinks: NavLink[] = [
   { href: "/dashboard", label: "Resumen General", icon: LayoutDashboard },
-  { href: "/dashboard/perfil", label: "Mi Perfil", icon: User },
+  { href: "/perfil", label: "Mi Perfil", icon: User },
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/gestion-citas", label: "Gestionar Citas", icon: ClipboardList },
