@@ -436,7 +436,7 @@ export function RegisterForm() {
                         selected={formData.fechaNacimiento}
                         onSelect={handleDateChange}
                         initialFocus
-                        captionLayout="dropdown-buttons"
+                        captionLayout="dropdown"
                       />
                     </PopoverContent>
                   </Popover>

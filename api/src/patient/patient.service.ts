@@ -40,6 +40,10 @@ export class PatientService {
       if (filters.cedula) {
         query = query.ilike('cedula', `%${filters.cedula}%`);
       }
+      // Filtro por Apellido (búsqueda parcial 'ilike') 
+      if (filters.apellido) {
+        query = query.ilike('apellidos', `%${filters.apellido}%`);
+      }
 
       // Filtro por Estado
       if (filters.estado && filters.estado !== 'todos') {
@@ -130,5 +134,22 @@ export class PatientService {
       );
 
     return { message: 'Paciente desactivado correctamente', paciente: data };
+  }
+
+  async reactivate(id: string) {
+    const ESTADO_ACTIVO = 1;
+
+    const { data, error } = await this.supabase
+      .from('paciente')
+      .update({ estado_paciente_id: ESTADO_ACTIVO })
+      .eq('usuario_id', id)
+      .select()
+      .single();
+
+    if (error)
+      throw new InternalServerErrorException(
+        `Error al reactivar: ${error.message}`,
+      );
+    return { message: 'Paciente reactivado correctamente', paciente: data };
   }
 }
