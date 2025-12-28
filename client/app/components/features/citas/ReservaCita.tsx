@@ -22,6 +22,14 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +50,7 @@ import {
   FileText,
   CheckCircle2,
   AlertTriangle,
+  ClipboardList,
   XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -50,19 +59,36 @@ import { toast } from "sonner";
 
 // --- Definición de pasos con Stepperize ---
 const { useStepper } = defineStepper(
-  { id: "step-1", title: "Fecha" },
+  { id: "step-1", title: "Fecha y Motivo" },
   { id: "step-2", title: "Hora y Detalles" },
   { id: "step-3", title: "Confirmación" }
 );
 
-// --- Generar slots de horarios (8 AM - 6 PM, cada 20 min) ---
-const generateTimeSlots = () => {
+// --- Opciones de motivo de cita ---
+const MOTIVO_OPTIONS = [
+  { value: "primera_cita", label: "Primera cita" },
+  { value: "rutina", label: "Rutina" },
+  { value: "seguimiento", label: "Seguimiento de Tratamiento" },
+  { value: "otro", label: "Otro" },
+];
+
+// --- Generar slots de horarios según día (L-V: 8AM-5PM, S-D: 8AM-4PM) ---
+const generateTimeSlots = (selectedDate?: Date) => {
   const slots: string[] = [];
   const startHour = 8;
-  const endHour = 18;
+  
+  // Determinar hora de cierre según día de la semana
+  // 0 = Domingo, 6 = Sábado
+  let endHour = 17; // Por defecto lunes a viernes
+  if (selectedDate) {
+    const dayOfWeek = selectedDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      endHour = 16; // Fines de semana: hasta las 4pm
+    }
+  }
 
   for (let hour = startHour; hour < endHour; hour++) {
-    for (let minute = 0; minute < 60; minute += 20) {
+    for (let minute = 0; minute < 60; minute += 30) {
       const timeString = `${hour.toString().padStart(2, "0")}:${minute
         .toString()
         .padStart(2, "0")}`;
@@ -73,8 +99,6 @@ const generateTimeSlots = () => {
   return slots;
 };
 
-const timeSlots = generateTimeSlots();
-
 export function AppointmentForm() {
   const stepper = useStepper();
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +108,8 @@ export function AppointmentForm() {
   const [appointmentData, setAppointmentData] = useState({
     fecha: undefined as Date | undefined,
     hora: "",
+    motivo: "",
+    motivoOtro: "", // Se guarda incluso si cambia de opción
     observaciones: "",
   });
 
@@ -95,13 +121,25 @@ export function AppointmentForm() {
   const isLastStep = currentStepIndex === stepper.all.length - 1;
   const progressValue = ((currentStepIndex + 1) / stepper.all.length) * 100;
 
+  // Generar slots dinámicamente según la fecha seleccionada
+  const timeSlots = generateTimeSlots(appointmentData.fecha);
+
   // --- Manejadores ---
   const handleDateChange = (date: Date | undefined) => {
-    setAppointmentData((prev) => ({ ...prev, fecha: date }));
+    // Si cambia la fecha, resetear hora por si ya no está disponible
+    setAppointmentData((prev) => ({ ...prev, fecha: date, hora: "" }));
   };
 
   const handleTimeSelect = (time: string) => {
     setAppointmentData((prev) => ({ ...prev, hora: time }));
+  };
+
+  const handleMotivoChange = (value: string) => {
+    setAppointmentData((prev) => ({ ...prev, motivo: value }));
+  };
+
+  const handleMotivoOtroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAppointmentData((prev) => ({ ...prev, motivoOtro: e.target.value }));
   };
 
   const handleObservacionesChange = (
@@ -110,11 +148,20 @@ export function AppointmentForm() {
     setAppointmentData((prev) => ({ ...prev, observaciones: e.target.value }));
   };
 
-  // Deshabilitar domingos y días pasados
+  // Deshabilitar días pasados (ya no deshabilitamos domingos porque ahora hay horario de fin de semana)
   const disabledDays = (date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return date < today || date.getDay() === 0;
+    return date < today;
+  };
+
+  // Obtener el motivo final para enviar (texto legible)
+  const getMotivoFinal = () => {
+    if (appointmentData.motivo === "otro") {
+      return appointmentData.motivoOtro || "Otro (sin especificar)";
+    }
+    const option = MOTIVO_OPTIONS.find((o) => o.value === appointmentData.motivo);
+    return option?.label || "";
   };
 
   // Combinar fecha y hora para enviar a la BD
@@ -141,6 +188,7 @@ export function AppointmentForm() {
 
       console.log("Datos de la cita:", {
         fecha_hora: fechaHoraCombinada,
+        motivo: getMotivoFinal(),
         observaciones: appointmentData.observaciones,
       });
 
@@ -223,17 +271,24 @@ export function AppointmentForm() {
     setAppointmentData({
       fecha: undefined,
       hora: "",
+      motivo: "",
+      motivoOtro: "",
       observaciones: "",
     });
     stepper.reset?.(); // Si stepperize tiene método reset
   };
 
-  const canProceedToStep2 = appointmentData.fecha !== undefined;
+  // Validación: se requiere fecha y motivo (si es "otro", también requiere texto)
+  const isMotivoValid =
+    appointmentData.motivo !== "" &&
+    (appointmentData.motivo !== "otro" || appointmentData.motivoOtro.trim() !== "");
+
+  const canProceedToStep2 = appointmentData.fecha !== undefined && isMotivoValid;
   const canProceedToStep3 = canProceedToStep2 && appointmentData.hora !== "";
 
   return (
     <>
-      <Card className="w-full max-w-2xl min-w-[640px]">
+      <Card className="w-full max-w-4xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">
             Reserva tu Cita
@@ -310,95 +365,185 @@ export function AppointmentForm() {
 
           {/* Contenido del Formulario */}
           <div className="space-y-4">
-            {/* STEP 1: Selección de Fecha */}
+            {/* STEP 1: Motivo y Fecha - Layout horizontal en desktop */}
             {stepper.when("step-1", () => (
-              <div className="animate-in fade-in duration-300 space-y-4">
-                <div className="text-center space-y-2">
-                  <CalendarIcon className="w-12 h-12 mx-auto text-primary" />
-                  <h3 className="text-lg font-semibold">
-                    Selecciona la fecha de tu cita
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Elige el día que prefieres para tu consulta
-                  </p>
-                </div>
+              <div className="animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                  {/* Sección de Motivo */}
+                  <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                    <div className="text-center space-y-2">
+                      <ClipboardList className="w-10 h-10 mx-auto text-primary" />
+                      <h3 className="text-lg font-semibold">
+                        Motivo de la cita
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Selecciona la razón principal
+                      </p>
+                    </div>
 
-                <div className="flex justify-center">
-                  <Calendar
-                    mode="single"
-                    selected={appointmentData.fecha}
-                    onSelect={handleDateChange}
-                    disabled={disabledDays}
-                    locale={es}
-                    className="rounded-md border"
-                  />
-                </div>
+                    <div className="space-y-3">
+                      <Select
+                        value={appointmentData.motivo}
+                        onValueChange={handleMotivoChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el motivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MOTIVO_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                {appointmentData.fecha && (
-                  <div className="bg-primary/10 p-4 rounded-lg text-center">
-                    <p className="text-sm font-medium">
-                      Fecha seleccionada:{" "}
-                      <span className="text-primary font-bold">
-                        {format(appointmentData.fecha, "PPPP", { locale: es })}
-                      </span>
-                    </p>
+                      {/* Input condicional para "Otro" */}
+                      {appointmentData.motivo === "otro" && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                          <Input
+                            placeholder="Especifica el motivo..."
+                            value={appointmentData.motivoOtro}
+                            onChange={handleMotivoOtroChange}
+                            maxLength={100}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {appointmentData.motivoOtro.length}/100 caracteres
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Indicador de selección */}
+                      {appointmentData.motivo && appointmentData.motivo !== "otro" && (
+                        <div className="bg-primary/10 p-3 rounded-lg">
+                          <p className="text-sm font-medium text-center">
+                            <Check className="w-4 h-4 inline mr-1 text-primary" />
+                            {MOTIVO_OPTIONS.find(o => o.value === appointmentData.motivo)?.label}
+                          </p>
+                        </div>
+                      )}
+                      {appointmentData.motivo === "otro" && appointmentData.motivoOtro && (
+                        <div className="bg-primary/10 p-3 rounded-lg">
+                          <p className="text-sm font-medium text-center">
+                            <Check className="w-4 h-4 inline mr-1 text-primary" />
+                            {appointmentData.motivoOtro}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  {/* Sección de Fecha */}
+                  <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                    <div className="text-center space-y-2">
+                      <CalendarIcon className="w-10 h-10 mx-auto text-primary" />
+                      <h3 className="text-lg font-semibold">
+                        Fecha de la cita
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Elige el día que prefieres
+                      </p>
+                    </div>
+
+                    <div className="flex justify-center">
+                      <Calendar
+                        mode="single"
+                        selected={appointmentData.fecha}
+                        onSelect={handleDateChange}
+                        disabled={disabledDays}
+                        locale={es}
+                        className="rounded-md border"
+                      />
+                    </div>
+
+                    {appointmentData.fecha && (
+                      <div className="bg-primary/10 p-3 rounded-lg text-center">
+                        <p className="text-sm font-medium">
+                          <Check className="w-4 h-4 inline mr-1 text-primary" />
+                          {format(appointmentData.fecha, "PPP", { locale: es })}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {appointmentData.fecha.getDay() === 0 ||
+                          appointmentData.fecha.getDay() === 6
+                            ? "8:00 AM - 4:00 PM"
+                            : "8:00 AM - 5:00 PM"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
 
-            {/* STEP 2: Selección de Hora y Observaciones */}
+            {/* STEP 2: Hora y Observaciones - Layout horizontal en desktop */}
             {stepper.when("step-2", () => (
-              <div className="animate-in fade-in duration-300 space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-primary" />
-                    <Label className="text-base font-semibold">
-                      Selecciona la hora
-                    </Label>
+              <div className="animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                  {/* Sección de Hora */}
+                  <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                    <div className="text-center space-y-2">
+                      <Clock className="w-10 h-10 mx-auto text-primary" />
+                      <h3 className="text-lg font-semibold">
+                        Horario disponible
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {appointmentData.fecha
+                          ? format(appointmentData.fecha, "EEEE d 'de' MMMM", { locale: es })
+                          : "Selecciona una hora"}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[240px] overflow-y-auto p-2 border rounded-lg bg-background">
+                      {timeSlots.map((time) => (
+                        <Button
+                          key={time}
+                          type="button"
+                          variant={
+                            appointmentData.hora === time ? "default" : "outline"
+                          }
+                          className={cn(
+                            "h-10 text-sm",
+                            appointmentData.hora === time &&
+                              "ring-2 ring-primary ring-offset-2"
+                          )}
+                          onClick={() => handleTimeSelect(time)}
+                        >
+                          {time}
+                        </Button>
+                      ))}
+                    </div>
+                    {appointmentData.hora && (
+                      <div className="bg-primary/10 p-3 rounded-lg text-center">
+                        <p className="text-sm font-medium">
+                          <Check className="w-4 h-4 inline mr-1 text-primary" />
+                          Hora seleccionada: {appointmentData.hora}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-[280px] overflow-y-auto p-2 border rounded-lg">
-                    {timeSlots.map((time) => (
-                      <Button
-                        key={time}
-                        type="button"
-                        variant={
-                          appointmentData.hora === time ? "default" : "outline"
-                        }
-                        className={cn(
-                          "h-12 text-sm",
-                          appointmentData.hora === time &&
-                            "ring-2 ring-primary ring-offset-2"
-                        )}
-                        onClick={() => handleTimeSelect(time)}
-                      >
-                        {time}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <Label
-                      htmlFor="observaciones"
-                      className="text-base font-semibold"
-                    >
-                      Observaciones (opcional)
-                    </Label>
+                  {/* Sección de Observaciones */}
+                  <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                    <div className="text-center space-y-2">
+                      <FileText className="w-10 h-10 mx-auto text-primary" />
+                      <h3 className="text-lg font-semibold">
+                        Observaciones
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Información adicional (opcional)
+                      </p>
+                    </div>
+                    <Textarea
+                      id="observaciones"
+                      value={appointmentData.observaciones}
+                      onChange={handleObservacionesChange}
+                      placeholder="Ej: Tengo dolor en el pie derecho, uso zapatos ortopédicos..."
+                      rows={6}
+                      className="resize-none bg-background"
+                    />
+                    <p className="text-xs text-muted-foreground text-center">
+                      Cualquier detalle ayuda al especialista a prepararse mejor
+                    </p>
                   </div>
-                  <Textarea
-                    id="observaciones"
-                    value={appointmentData.observaciones}
-                    onChange={handleObservacionesChange}
-                    placeholder="Ej: Primera consulta, dolor en pie derecho..."
-                    rows={4}
-                    className="resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Puedes agregar cualquier detalle que consideres importante
-                  </p>
                 </div>
               </div>
             ))}
@@ -442,6 +587,18 @@ export function AppointmentForm() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Duración: 20 minutos
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <ClipboardList className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Motivo de la cita
+                      </p>
+                      <p className="text-base font-semibold">
+                        {getMotivoFinal()}
                       </p>
                     </div>
                   </div>
@@ -547,6 +704,10 @@ export function AppointmentForm() {
                   <p>
                     <span className="font-semibold">Hora:</span>{" "}
                     {appointmentData.hora}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Motivo:</span>{" "}
+                    {getMotivoFinal()}
                   </p>
                 </div>
                 <p className="text-xs pt-2">

@@ -2,7 +2,7 @@ import React from 'react';
 import { GraduationCap, Award, Stethoscope, HeartHandshake, MapPin, Phone, Clock } from 'lucide-react';
 
 export default function AboutPodiatristPage() {
-  // Definimos los colores aquí para referencia (se aplicarán como clases arbitrarias)
+ 
   // Turquesa (Color del bloque): text-[#20aca2] / bg-[#20aca2]
   // Azul (Color del botón): text-[#2563eb]
 
