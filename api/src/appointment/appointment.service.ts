@@ -153,4 +153,63 @@ export class AppointmentService {
 
     return citasEnriquecidas;
   }
+
+  /**
+   * Obtener citas de un podólogo para una fecha específica (para gestión de citas)
+   */
+  async findByDate(podologoId: string, date: string) {
+    // Calcular inicio y fin del día
+    const startOfDay = `${date}T00:00:00.000Z`;
+    const endOfDay = `${date}T23:59:59.999Z`;
+
+    // 1. Query para obtener citas del día
+    const { data: citas, error } = await this.supabase
+      .from('cita')
+      .select('id, fecha_hora_inicio, motivo_cita, observaciones_paciente, observaciones_podologo, procedimientos_realizados, estado_id, paciente_id')
+      .eq('podologo_id', podologoId)
+      .gte('fecha_hora_inicio', startOfDay)
+      .lte('fecha_hora_inicio', endOfDay)
+      .order('fecha_hora_inicio', { ascending: true });
+
+    if (error) {
+      throw new InternalServerErrorException(`Error al obtener citas: ${error.message}`);
+    }
+
+    if (!citas || citas.length === 0) {
+      return [];
+    }
+
+    // 2. Obtener datos de pacientes
+    const pacienteIds = [...new Set(citas.map(c => c.paciente_id).filter(Boolean))];
+    const estadoIds = [...new Set(citas.map(c => c.estado_id).filter(Boolean))];
+
+    const { data: pacientes } = await this.supabase
+      .from('paciente')
+      .select('usuario_id, nombres, apellidos, cedula, telefono, email, fecha_nacimiento')
+      .in('usuario_id', pacienteIds);
+
+    const { data: estados } = await this.supabase
+      .from('estado_cita')
+      .select('id, nombre')
+      .in('id', estadoIds);
+
+    // 3. Mapas para lookup
+    const pacienteMap = new Map(pacientes?.map(p => [p.usuario_id, p]) || []);
+    const estadoMap = new Map(estados?.map(e => [e.id, e]) || []);
+
+    // 4. Enriquecer citas
+    const citasEnriquecidas = citas.map(cita => ({
+      id: cita.id,
+      fecha_hora_inicio: cita.fecha_hora_inicio,
+      motivo_cita: cita.motivo_cita,
+      observaciones_paciente: cita.observaciones_paciente,
+      observaciones_podologo: cita.observaciones_podologo,
+      procedimientos_realizados: cita.procedimientos_realizados,
+      estado_id: cita.estado_id,
+      paciente: pacienteMap.get(cita.paciente_id) || null,
+      estado_cita: estadoMap.get(cita.estado_id) || null,
+    }));
+
+    return citasEnriquecidas;
+  }
 }

@@ -19,4 +19,12 @@ export class AppointmentController {
   ) {
     return this.appointmentService.findByPodologo(podologoId, startDate, endDate);
   }
+
+  @Get('by-date')
+  findByDate(
+    @Query('podologoId') podologoId: string,
+    @Query('date') date: string, // Formato: YYYY-MM-DD
+  ) {
+    return this.appointmentService.findByDate(podologoId, date);
+  }
 }

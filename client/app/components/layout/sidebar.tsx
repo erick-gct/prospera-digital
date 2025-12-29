@@ -39,7 +39,7 @@ const patientLinks: NavLink[] = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { href: "/perfil", label: "Mi Perfil", icon: User },
   { href: "/reserva-cita", label: "Agendar Cita", icon: CalendarPlus },
-  { href: "/mis-citas", label: "Mis Citas", icon: CalendarCheck },
+  { href: "/mis-citas", label: "Mis Citas (Historial)", icon: CalendarCheck },
 ]
 
 // --- ENLACES PODÓLOGO ---
