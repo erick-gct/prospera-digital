@@ -5,6 +5,7 @@ import { PatientFilters } from "@/app/components/features/pacientes/PatientFilte
 import { PatientsTable } from "@/app/components/features/pacientes/PatientsTable"
 import { Users } from "lucide-react"
 import { toast } from "sonner"
+import { ApiRoutes } from "@/lib/api-routes"
 
 export default function PatientsPage() {
   const [data, setData] = useState([])
@@ -24,7 +25,7 @@ export default function PatientsPage() {
       if (apellidoQuery) params.append("apellido", apellidoQuery)
       if (statusFilter !== "todos") params.append("estado", statusFilter)
 
-      const res = await fetch(`http://localhost:3001/pacientes?${params.toString()}`)
+      const res = await fetch(`${ApiRoutes.pacientes.base}?${params.toString()}`)
       
       if (!res.ok) throw new Error("Error al cargar pacientes")
       

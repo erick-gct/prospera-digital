@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
+import {ApiRoutes} from "@/lib/api-routes"
 
 interface PatientsTableProps {
   data: Paciente[]
@@ -81,7 +82,7 @@ export function PatientsTable({ data, isLoading, onDataUpdate }: PatientsTablePr
     setIsDeactivating(true)
 
     try {
-      const res = await fetch(`http://localhost:3001/pacientes/${selectedPatient.usuario_id}`, {
+      const res = await fetch(`${ApiRoutes.pacientes.byId(selectedPatient.usuario_id)}`, {
         method: 'DELETE'
       })
       if (!res.ok) throw new Error("Error al desactivar usuario")
@@ -110,7 +111,7 @@ export function PatientsTable({ data, isLoading, onDataUpdate }: PatientsTablePr
     setIsActivating(true)
 
     try {
-      const res = await fetch(`http://localhost:3001/pacientes/${selectedPatient.usuario_id}/reactivate`, {
+      const res = await fetch(`${ApiRoutes.pacientes.reactivate(selectedPatient.usuario_id)}`, {
         method: 'PATCH' 
       })
 

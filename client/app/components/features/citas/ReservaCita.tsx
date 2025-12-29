@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { defineStepper } from "@stepperize/react";
+import { createClient } from "@/lib/supabase/cliente";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +57,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+import { ApiRoutes } from "@/lib/api-routes";
 
 // --- Definición de pasos con Stepperize ---
 const { useStepper } = defineStepper(
@@ -112,6 +114,21 @@ export function AppointmentForm() {
     motivoOtro: "", // Se guarda incluso si cambia de opción
     observaciones: "",
   });
+
+  // Estado para el ID del usuario autenticado
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Obtener el ID del usuario autenticado al montar el componente
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Calcular índice actual y progreso
   const currentStepIndex = stepper.all.findIndex(
@@ -177,7 +194,7 @@ export function AppointmentForm() {
 
   const handleConfirmAppointment = async () => {
     setIsLoading(true);
-    
+  
     try {
       const fechaHoraCombinada = getFechaHoraCombinada();
 
@@ -186,34 +203,34 @@ export function AppointmentForm() {
         throw new Error("Faltan datos requeridos para la cita");
       }
 
-      console.log("Datos de la cita:", {
-        fecha_hora: fechaHoraCombinada,
-        motivo: getMotivoFinal(),
-        observaciones: appointmentData.observaciones,
+      if (!userId) {
+        throw new Error("No se pudo identificar al usuario. Por favor, inicia sesión nuevamente.");
+      }
+
+      // Preparar el payload para el backend
+      const payload = {
+        fechaHoraInicio: fechaHoraCombinada.toISOString(), // ISO string para el backend
+        motivo_cita: getMotivoFinal(), // Campo de la BD es motivo_cita
+        observaciones_paciente: appointmentData.observaciones, // Campo de la BD es observaciones_paciente
+        userId: userId,
+      };
+
+      console.log("Enviando datos de la cita:", payload);
+
+      // Llamada real a la API del backend
+      const response = await fetch(ApiRoutes.citas.base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-
-      // Aquí va tu llamada real a la API
-      // const response = await fetch('/api/appointments', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     fecha_hora: fechaHoraCombinada,
-      //     observaciones: appointmentData.observaciones,
-      //   }),
-      // });
       
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Error al reservar la cita');
-      // }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al reservar la cita');
+      }
 
-      // Simulación de carga (eliminar en producción)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Simulación de error aleatorio para testing (eliminar en producción)
-      // if (Math.random() > 0.7) {
-      //   throw new Error("La hora seleccionada ya no está disponible");
-      // }
+      const result = await response.json();
+      console.log("Respuesta del servidor:", result);
 
       setIsLoading(false);
       setShowConfirmDialog(false);
@@ -241,10 +258,15 @@ export function AppointmentForm() {
       if (error instanceof Error) {
         errorMessage = error.message;
         
-        // Puedes personalizar mensajes según el tipo de error
-        if (error.message.includes("disponible")) {
+        // Personalizar mensajes según el tipo de error del backend
+        if (error.message.includes("existe") || error.message.includes("reservada")) {
           errorDescription = "Por favor, selecciona otro horario.";
-        } else if (error.message.includes("red") || error.message.includes("network")) {
+        } else if (error.message.includes("disponible")) {
+          errorDescription = "Por favor, selecciona otro horario.";
+        } else if (error.message.includes("identificar") || error.message.includes("sesión")) {
+          errorDescription = "Intenta cerrar sesión y volver a iniciar.";
+        } else if (error.message.includes("red") || error.message.includes("network") || error.message.includes("fetch")) {
+          errorMessage = "Error de conexión";
           errorDescription = "Verifica tu conexión a internet.";
         } else if (error.message.includes("servidor") || error.message.includes("server")) {
           errorDescription = "Estamos experimentando problemas técnicos.";

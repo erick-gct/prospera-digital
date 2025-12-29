@@ -51,6 +51,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { Paciente, Podologo } from "@/types"
+import { ApiRoutes } from "@/lib/api-routes"
 
 interface ProfileEditDialogProps {
   isOpen: boolean
@@ -92,8 +93,8 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
       const fetchCatalogs = async () => {
         try {
           const [resPaises, resSangre] = await Promise.all([
-            fetch("http://localhost:3001/common/paises"),
-            fetch("http://localhost:3001/common/tipos-sangre")
+            fetch(ApiRoutes.common.paises),
+            fetch(ApiRoutes.common.tiposSangre)
           ])
           
           if (resPaises.ok) {
@@ -163,8 +164,8 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
     try {
       // Endpoint dinámico según rol
       const endpoint = isPaciente 
-        ? `http://localhost:3001/pacientes/${data.usuario_id}`
-        : `http://localhost:3001/podologos/${data.usuario_id}`
+        ? `${ApiRoutes.pacientes.byId(data.usuario_id)}`
+        : `${ApiRoutes.podologos.byId(data.usuario_id)}`
 
       // Payload dinámico (filtramos lo que enviamos según el rol)
       const payload: any = {

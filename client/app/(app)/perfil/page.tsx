@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { toast } from "sonner"
-// Importamos el nuevo diálogo
+import { ApiRoutes } from "@/lib/api-routes"
 import { ProfileEditDialog } from "@/app/components/features/perfil/ProfileEditDialog"
 
 export default function ProfilePage() {
@@ -45,8 +45,8 @@ export default function ProfilePage() {
         setUserRole(role)
 
         const endpoint = role === 'PODOLOGO' 
-            ? `http://localhost:3001/podologos/${user.id}`
-            : `http://localhost:3001/pacientes/${user.id}`
+            ? `${ApiRoutes.podologos.byId(user.id)}`
+            : `${ApiRoutes.pacientes.byId(user.id)}`
 
         const res = await fetch(endpoint)
         

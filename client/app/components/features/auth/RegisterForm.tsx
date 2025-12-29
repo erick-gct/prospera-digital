@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-
+import { ApiRoutes } from "@/lib/api-routes";
 import { toast } from "sonner";
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
 import { createClient } from "@/lib/supabase/cliente";
@@ -102,7 +102,7 @@ export function RegisterForm() {
   useEffect(() => {
     const fetchCatalogs = async () => {
       try {
-        const resPaises = await fetch("http://localhost:3001/common/paises");
+        const resPaises = await fetch(ApiRoutes.common.paises);
         if (resPaises.ok) {
           const dataPaises = await resPaises.json();
           if (Array.isArray(dataPaises)) {
@@ -116,7 +116,7 @@ export function RegisterForm() {
         }
 
         const resSangre = await fetch(
-          "http://localhost:3001/common/tipos-sangre"
+          ApiRoutes.common.tiposSangre
         );
         if (resSangre.ok) {
           const dataSangre = await resSangre.json();
@@ -246,7 +246,7 @@ export function RegisterForm() {
     const supabase = createClient();
 
     try {
-      const response = await fetch("http://localhost:3001/auth/register", {
+      const response = await fetch(ApiRoutes.auth.register, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

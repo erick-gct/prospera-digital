@@ -50,6 +50,7 @@ import { format } from "date-fns"
 import { Paciente } from "@/types" 
 import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { ApiRoutes } from "@/lib/api-routes"
 
 interface PatientEditDialogProps {
   isOpen: boolean
@@ -88,8 +89,8 @@ export function PatientEditDialog({ isOpen, onClose, paciente, onSuccess }: Pati
       const fetchCatalogs = async () => {
         try {
           const [resPaises, resSangre] = await Promise.all([
-            fetch("http://localhost:3001/common/paises"),
-            fetch("http://localhost:3001/common/tipos-sangre")
+            fetch(ApiRoutes.common.paises),
+            fetch(ApiRoutes.common.tiposSangre)
           ])
           
           if (resPaises.ok) {
@@ -161,7 +162,7 @@ export function PatientEditDialog({ isOpen, onClose, paciente, onSuccess }: Pati
     setShowConfirm(false) // Cerramos la alerta, mostramos loading en el dialog principal si queremos o bloqueamos
 
     try {
-      const response = await fetch(`http://localhost:3001/pacientes/${paciente.usuario_id}`, {
+      const response = await fetch(`${ApiRoutes.pacientes.byId(paciente.usuario_id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

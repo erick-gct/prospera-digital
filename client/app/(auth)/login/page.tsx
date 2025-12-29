@@ -14,8 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-
-// --- 1. Imports necesarios ---
+import { ApiRoutes } from "@/lib/api-routes";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/cliente"; // Nuestro helper
 import { toast } from "sonner";
@@ -36,7 +35,7 @@ export default function LoginPage() {
     const supabase = createClient();
     try {
       // --- 3. Lógica de FETCH a tu API de NestJS ---
-      const response = await fetch("http://localhost:3001/auth/login", {
+      const response = await fetch(ApiRoutes.auth.login, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

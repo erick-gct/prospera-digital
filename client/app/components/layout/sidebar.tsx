@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/cliente"
+import { ApiRoutes } from "@/lib/api-routes"
 
 type NavLink = {
   href: string
@@ -100,7 +101,7 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000)
-        const res = await fetch('http://localhost:3001/', { method: 'GET', signal: controller.signal })
+        const res = await fetch(ApiRoutes.healthCheck, { method: 'GET', signal: controller.signal })
         clearTimeout(timeoutId)
         if (res.ok) setIsBackendOnline(true)
         else setIsBackendOnline(false)

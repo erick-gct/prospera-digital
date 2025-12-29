@@ -24,16 +24,6 @@ export class PatientController {
 
   @Get('perfil') // GET /pacientes/perfil
   getProfile(@Request() req: any) {
-    // 1. Obtenemos el ID del usuario logueado desde el token/sesión
-    // (Esto requiere que tu AuthGuard haya puesto el usuario en req.user)
-    // Por ahora, para probar, supongamos que el ID viene en un header o lo simulamos.
-    // En producción: const userId = req.user.id;
-    
-    // Ejemplo simulado si no tienes el Guard aún configurado para inyectar user:
-    // return this.patientService.findOne("ID_DEL_PACIENTE_LOGUEADO");
-    
-    // Si ya tienes el guard:
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const userId = req.user?.id;
     return this.patientService.findOne(userId);
   }
