@@ -72,6 +72,10 @@ export class AppointmentService {
       .single();
 
     if (insertError) {
+      // Detectar error de unique constraint (doble booking a nivel de BD)
+      if (insertError.code === '23505') {
+        throw new BadRequestException('Ya existe una cita reservada para esta fecha y hora. Por favor, selecciona otro horario.');
+      }
       throw new InternalServerErrorException(`Error al reservar la cita: ${insertError.message}`);
     }
 
@@ -88,8 +92,7 @@ export class AppointmentService {
       const horaFormateada = fechaCita.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       const nombreCompleto = `${paciente.nombres} ${paciente.apellidos}`;
 
-      // Usamos tu MailService existente
-      // (Asegúrate de que este método exista en tu mail.service.ts, si no, agrégalo como vimos antes)
+      // Enviar correo de confirmación
       await this.mailService.sendAppointmentConfirmation(
         paciente.email,
         nombreCompleto,
