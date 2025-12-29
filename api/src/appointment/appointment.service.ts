@@ -24,20 +24,8 @@ export class AppointmentService {
   }
 
   async create(createAppointmentDto: CreateAppointmentDto) {
-    // 1. ASIGNAR PODÓLOGO
-    // Como es un consultorio pequeño, buscamos al primer podólogo disponible en la BD.
-    // (En el futuro podrías enviar podologoId desde el frontend si hay varios).
-    const { data: podologo, error: podError } = await this.supabase
-      .from('podologo')
-      .select('usuario_id')
-      .limit(1)
-      .single();
-
-    if (podError || !podologo) {
-      throw new NotFoundException('No hay podólogos registrados en el sistema.');
-    }
-
-    const podologoId = podologo.usuario_id;
+    // 1. USAR PODÓLOGO SELECCIONADO POR EL PACIENTE
+    const podologoId = createAppointmentDto.podologoId;
     const fechaCita = new Date(createAppointmentDto.fechaHoraInicio);
 
     // 2. VALIDACIÓN DE DOBLE BOOKING
@@ -102,5 +90,67 @@ export class AppointmentService {
     }
 
     return { message: 'Cita reservada con éxito', cita: nuevaCita };
+  }
+
+  /**
+   * Obtener citas de un podólogo con filtro de rango de fechas
+   */
+  async findByPodologo(podologoId: string, startDate?: string, endDate?: string) {
+    // 1. Query simple para obtener las citas
+    let query = this.supabase
+      .from('cita')
+      .select('id, fecha_hora_inicio, motivo_cita, observaciones_paciente, estado_id, paciente_id')
+      .eq('podologo_id', podologoId)
+      .order('fecha_hora_inicio', { ascending: true });
+
+    if (startDate) {
+      query = query.gte('fecha_hora_inicio', startDate);
+    }
+    if (endDate) {
+      query = query.lte('fecha_hora_inicio', endDate);
+    }
+
+    const { data: citas, error } = await query;
+
+    if (error) {
+      throw new InternalServerErrorException(`Error al obtener citas: ${error.message}`);
+    }
+
+    if (!citas || citas.length === 0) {
+      return [];
+    }
+
+    // 2. Obtener IDs únicos de pacientes y estados
+    const pacienteIds = [...new Set(citas.map(c => c.paciente_id).filter(Boolean))];
+    const estadoIds = [...new Set(citas.map(c => c.estado_id).filter(Boolean))];
+
+    // 3. Query para pacientes
+    const { data: pacientes } = await this.supabase
+      .from('paciente')
+      .select('usuario_id, nombres, apellidos, cedula')
+      .in('usuario_id', pacienteIds);
+
+    // 4. Query para estados
+    const { data: estados } = await this.supabase
+      .from('estado_cita')
+      .select('id, nombre')
+      .in('id', estadoIds);
+
+    // 5. Crear mapas para lookup rápido
+    const pacienteMap = new Map(pacientes?.map(p => [p.usuario_id, p]) || []);
+    const estadoMap = new Map(estados?.map(e => [e.id, e]) || []);
+
+    // 6. Enriquecer las citas con datos de paciente y estado
+    const citasEnriquecidas = citas.map(cita => ({
+      id: cita.id,
+      fecha_hora_inicio: cita.fecha_hora_inicio,
+      motivo_cita: cita.motivo_cita,
+      observaciones_paciente: cita.observaciones_paciente,
+      estado_id: cita.estado_id,
+      paciente: pacienteMap.get(cita.paciente_id) || null,
+      estado_cita: estadoMap.get(cita.estado_id) || null,
+    }));
+
+    return citasEnriquecidas;
   }
 }

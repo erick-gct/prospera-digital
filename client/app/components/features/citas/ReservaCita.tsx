@@ -53,6 +53,7 @@ import {
   AlertTriangle,
   ClipboardList,
   XCircle,
+  User,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -106,6 +107,16 @@ export function AppointmentForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
+  // Tipo para podólogo
+  interface Podologo {
+    usuario_id: string;
+    nombres: string;
+    apellidos: string;
+  }
+
+  // Estado para lista de podólogos
+  const [podologos, setPodologos] = useState<Podologo[]>([]);
+
   // --- Estado del formulario ---
   const [appointmentData, setAppointmentData] = useState({
     fecha: undefined as Date | undefined,
@@ -113,12 +124,13 @@ export function AppointmentForm() {
     motivo: "",
     motivoOtro: "", // Se guarda incluso si cambia de opción
     observaciones: "",
+    podologoId: "", // ID del especialista seleccionado
   });
 
   // Estado para el ID del usuario autenticado
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Obtener el ID del usuario autenticado al montar el componente
+  // Obtener el ID del usuario autenticado y lista de podólogos al montar
   useEffect(() => {
     const fetchUser = async () => {
       const supabase = createClient();
@@ -128,6 +140,20 @@ export function AppointmentForm() {
       }
     };
     fetchUser();
+
+    // Cargar lista de podólogos
+    const fetchPodologos = async () => {
+      try {
+        const res = await fetch(ApiRoutes.podologos.base);
+        if (res.ok) {
+          const data = await res.json();
+          setPodologos(data);
+        }
+      } catch (error) {
+        console.error('Error fetching podólogos:', error);
+      }
+    };
+    fetchPodologos();
   }, []);
 
   // Calcular índice actual y progreso
@@ -163,6 +189,10 @@ export function AppointmentForm() {
     e: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     setAppointmentData((prev) => ({ ...prev, observaciones: e.target.value }));
+  };
+
+  const handlePodologoChange = (value: string) => {
+    setAppointmentData((prev) => ({ ...prev, podologoId: value }));
   };
 
   // Deshabilitar días pasados (ya no deshabilitamos domingos porque ahora hay horario de fin de semana)
@@ -213,6 +243,7 @@ export function AppointmentForm() {
         motivo_cita: getMotivoFinal(), // Campo de la BD es motivo_cita
         observaciones_paciente: appointmentData.observaciones, // Campo de la BD es observaciones_paciente
         userId: userId,
+        podologoId: appointmentData.podologoId, // Especialista seleccionado
       };
 
       console.log("Enviando datos de la cita:", payload);
@@ -296,6 +327,7 @@ export function AppointmentForm() {
       motivo: "",
       motivoOtro: "",
       observaciones: "",
+      podologoId: "",
     });
     stepper.reset?.(); // Si stepperize tiene método reset
   };
@@ -305,7 +337,10 @@ export function AppointmentForm() {
     appointmentData.motivo !== "" &&
     (appointmentData.motivo !== "otro" || appointmentData.motivoOtro.trim() !== "");
 
-  const canProceedToStep2 = appointmentData.fecha !== undefined && isMotivoValid;
+  const canProceedToStep2 = 
+    appointmentData.fecha !== undefined && 
+    isMotivoValid && 
+    appointmentData.podologoId !== "";
   const canProceedToStep3 = canProceedToStep2 && appointmentData.hora !== "";
 
   return (
@@ -455,6 +490,53 @@ export function AppointmentForm() {
                     </div>
                   </div>
 
+                  {/* Sección de Especialista */}
+                  <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                    <div className="text-center space-y-2">
+                      <User className="w-10 h-10 mx-auto text-primary" />
+                      <h3 className="text-lg font-semibold">
+                        Especialista
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Selecciona el profesional
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Select
+                        value={appointmentData.podologoId}
+                        onValueChange={handlePodologoChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el especialista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {podologos.map((podologo) => (
+                            <SelectItem key={podologo.usuario_id} value={podologo.usuario_id}>
+                              Dr. {podologo.nombres} {podologo.apellidos}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Indicador de selección */}
+                      {appointmentData.podologoId && (
+                        <div className="bg-primary/10 p-3 rounded-lg">
+                          <p className="text-sm font-medium text-center">
+                            <Check className="w-4 h-4 inline mr-1 text-primary" />
+                            {(() => {
+                              const selected = podologos.find(p => p.usuario_id === appointmentData.podologoId);
+                              return selected ? `Dr. ${selected.nombres} ${selected.apellidos}` : '';
+                            })()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Segunda fila: Fecha */}
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                   {/* Sección de Fecha */}
                   <div className="space-y-4 p-4 rounded-lg bg-muted/30">
                     <div className="text-center space-y-2">
@@ -621,6 +703,21 @@ export function AppointmentForm() {
                       </p>
                       <p className="text-base font-semibold">
                         {getMotivoFinal()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <User className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Especialista
+                      </p>
+                      <p className="text-base font-semibold">
+                        {(() => {
+                          const selected = podologos.find(p => p.usuario_id === appointmentData.podologoId);
+                          return selected ? `Dr. ${selected.nombres} ${selected.apellidos}` : '-';
+                        })()}
                       </p>
                     </div>
                   </div>

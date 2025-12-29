@@ -6,13 +6,13 @@ export const ApiRoutes = {
 
   //General
   healthCheck: `${API_BASE_URL}`,
- 
+
   // Autenticación
   auth: {
     login: `${API_BASE_URL}/auth/login`,
     register: `${API_BASE_URL}/auth/register`,
   },
-  
+
   // Pacientes
   pacientes: {
     base: `${API_BASE_URL}/pacientes`, // GET (todos), POST (crear)
@@ -22,13 +22,19 @@ export const ApiRoutes = {
 
   //Podologos
   podologos: {
-    //base: `${API_BASE_URL}/podologos`, // GET (todos), POST (crear)
+    base: `${API_BASE_URL}/podologos`, // GET (todos)
     byId: (id: string) => `${API_BASE_URL}/podologos/${id}`, // GET, PATCH, DELETE
   },
 
   // Citas (El nuevo módulo)
   citas: {
     base: `${API_BASE_URL}/appointments`, // POST (reservar)
+    byPodologo: (podologoId: string, startDate?: string, endDate?: string) => {
+      const params = new URLSearchParams({ podologoId });
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      return `${API_BASE_URL}/appointments?${params.toString()}`;
+    },
   },
 
   // Comunes (Catálogos)

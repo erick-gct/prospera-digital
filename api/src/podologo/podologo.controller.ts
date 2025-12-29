@@ -4,7 +4,12 @@ import { UpdatePodologoDto } from './dto/update-podologo.dto';
 
 @Controller('podologos')
 export class PodologoController {
-  constructor(private readonly podologoService: PodologoService) {}
+  constructor(private readonly podologoService: PodologoService) { }
+
+  @Get()
+  findAll() {
+    return this.podologoService.findAll();
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) {

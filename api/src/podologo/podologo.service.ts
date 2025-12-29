@@ -14,6 +14,16 @@ export class PodologoService {
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
 
+  async findAll() {
+    const { data, error } = await this.supabase
+      .from('podologo')
+      .select('usuario_id, nombres, apellidos')
+      .order('apellidos', { ascending: true });
+
+    if (error) throw new InternalServerErrorException(`Error al obtener podólogos: ${error.message}`);
+    return data || [];
+  }
+
   async findOne(id: string) {
     const { data, error } = await this.supabase
       .from('podologo')

@@ -20,4 +20,9 @@ export class CreateAppointmentDto {
   @IsNotEmpty()
   @IsUUID()
   userId: string;
+
+  // El ID del podólogo seleccionado por el paciente
+  @IsNotEmpty()
+  @IsUUID()
+  podologoId: string;
 }
