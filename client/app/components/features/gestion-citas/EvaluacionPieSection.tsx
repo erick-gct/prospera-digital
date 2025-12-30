@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { ClipboardList, Footprints, Activity, Heart, Shirt } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,8 +13,24 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+// Tipo para los datos de evaluación
+export interface EvaluacionData {
+  tipoPieIzq: string
+  piNotas: string
+  piUnas: string
+  tipoPieDer: string
+  pdNotas: string
+  pdUnas: string
+  tipoCalzado: string
+  actividadFisica: string
+  evaluacionVascular: string
+}
+
 interface EvaluacionPieSectionProps {
   citaId: string
+  data: EvaluacionData
+  onChange: (data: EvaluacionData) => void
+  disabled?: boolean
 }
 
 const TIPO_PIE_OPTIONS = [
@@ -26,31 +41,10 @@ const TIPO_PIE_OPTIONS = [
   { value: "cavo_rígido", label: "Pie Cavo Rígido" },
 ]
 
-const TIPO_CALZADO_OPTIONS = [
-  { value: "deportivo", label: "Deportivo" },
-  { value: "formal", label: "Formal" },
-  { value: "casual", label: "Casual" },
-  { value: "sandalias", label: "Sandalias" },
-  { value: "botas", label: "Botas" },
-  { value: "tacones", label: "Tacones" },
-  { value: "mixto", label: "Mixto" },
-]
-
-export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
-  // Pie izquierdo
-  const [tipoPieIzq, setTipoPieIzq] = useState("")
-  const [piNotas, setPiNotas] = useState("")
-  const [piUnas, setPiUnas] = useState("")
-
-  // Pie derecho
-  const [tipoPieDer, setTipoPieDer] = useState("")
-  const [pdNotas, setPdNotas] = useState("")
-  const [pdUnas, setPdUnas] = useState("")
-
-  // Información general
-  const [tipoCalzado, setTipoCalzado] = useState("")
-  const [actividadFisica, setActividadFisica] = useState("")
-  const [evaluacionVascular, setEvaluacionVascular] = useState("")
+export function EvaluacionPieSection({ citaId, data, onChange, disabled = false }: EvaluacionPieSectionProps) {
+  const updateField = <K extends keyof EvaluacionData>(field: K, value: EvaluacionData[K]) => {
+    onChange({ ...data, [field]: value })
+  }
 
   return (
     <Card>
@@ -75,7 +69,11 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
             
             <div className="space-y-2">
               <Label className="text-sm">Tipo de Pie</Label>
-              <Select value={tipoPieIzq} onValueChange={setTipoPieIzq}>
+              <Select 
+                value={data.tipoPieIzq} 
+                onValueChange={(v) => updateField("tipoPieIzq", v)}
+                disabled={disabled}
+              >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
@@ -93,9 +91,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               <Label className="text-sm">Notas / Condición</Label>
               <Textarea
                 placeholder="Gravedad, deformidades, hallazgos..."
-                value={piNotas}
-                onChange={(e) => setPiNotas(e.target.value)}
+                value={data.piNotas}
+                onChange={(e) => updateField("piNotas", e.target.value)}
                 className="min-h-[60px] text-sm"
+                disabled={disabled}
               />
             </div>
 
@@ -103,9 +102,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               <Label className="text-sm">Estado de las Uñas</Label>
               <Textarea
                 placeholder="Onicomicosis, encarnadas, engrosadas..."
-                value={piUnas}
-                onChange={(e) => setPiUnas(e.target.value)}
+                value={data.piUnas}
+                onChange={(e) => updateField("piUnas", e.target.value)}
                 className="min-h-[50px] text-sm"
+                disabled={disabled}
               />
             </div>
           </div>
@@ -119,7 +119,11 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
             
             <div className="space-y-2">
               <Label className="text-sm">Tipo de Pie</Label>
-              <Select value={tipoPieDer} onValueChange={setTipoPieDer}>
+              <Select 
+                value={data.tipoPieDer} 
+                onValueChange={(v) => updateField("tipoPieDer", v)}
+                disabled={disabled}
+              >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
@@ -137,9 +141,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               <Label className="text-sm">Notas / Condición</Label>
               <Textarea
                 placeholder="Gravedad, deformidades, hallazgos..."
-                value={pdNotas}
-                onChange={(e) => setPdNotas(e.target.value)}
+                value={data.pdNotas}
+                onChange={(e) => updateField("pdNotas", e.target.value)}
                 className="min-h-[60px] text-sm"
+                disabled={disabled}
               />
             </div>
 
@@ -147,9 +152,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               <Label className="text-sm">Estado de las Uñas</Label>
               <Textarea
                 placeholder="Onicomicosis, encarnadas, engrosadas..."
-                value={pdUnas}
-                onChange={(e) => setPdUnas(e.target.value)}
+                value={data.pdUnas}
+                onChange={(e) => updateField("pdUnas", e.target.value)}
                 className="min-h-[50px] text-sm"
+                disabled={disabled}
               />
             </div>
           </div>
@@ -168,9 +174,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               </Label>
               <Input
                 placeholder="Deportivo, formal, casual..."
-                value={tipoCalzado}
-                onChange={(e) => setTipoCalzado(e.target.value)}
+                value={data.tipoCalzado}
+                onChange={(e) => updateField("tipoCalzado", e.target.value)}
                 className="h-9"
+                disabled={disabled}
               />
             </div>
 
@@ -182,9 +189,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               </Label>
               <Input
                 placeholder="Tipo y frecuencia..."
-                value={actividadFisica}
-                onChange={(e) => setActividadFisica(e.target.value)}
+                value={data.actividadFisica}
+                onChange={(e) => updateField("actividadFisica", e.target.value)}
                 className="h-9"
+                disabled={disabled}
               />
             </div>
 
@@ -196,9 +204,10 @@ export function EvaluacionPieSection({ citaId }: EvaluacionPieSectionProps) {
               </Label>
               <Input
                 placeholder="Pulsos, temperatura, coloración..."
-                value={evaluacionVascular}
-                onChange={(e) => setEvaluacionVascular(e.target.value)}
+                value={data.evaluacionVascular}
+                onChange={(e) => updateField("evaluacionVascular", e.target.value)}
                 className="h-9"
+                disabled={disabled}
               />
             </div>
           </div>

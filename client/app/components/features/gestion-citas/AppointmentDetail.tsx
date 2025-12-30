@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { format, parseISO, differenceInYears } from "date-fns"
 import { es } from "date-fns/locale"
 import { 
@@ -15,10 +15,10 @@ import {
   ClipboardList,
   Upload,
   Phone,
-  Mail,
   IdCard,
   Save,
-  Plus
+  Plus,
+  Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -26,16 +26,36 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import { ApiRoutes } from "@/lib/api-routes"
 import { CitaGestion } from "./AppointmentsList"
 import { RecetaModal, Medicamento } from "./RecetaModal"
-import { OrtesisSection } from "./OrtesisSection"
-import { EvaluacionPieSection } from "./EvaluacionPieSection"
+import { OrtesisSection, OrtesisData } from "./OrtesisSection"
+import { EvaluacionPieSection, EvaluacionData } from "./EvaluacionPieSection"
 import { DocumentosSection } from "./DocumentosSection"
 
 interface AppointmentDetailProps {
   cita: CitaGestion
   onBack: () => void
+}
+
+// Tipo para receta guardada
+interface RecetaGuardada {
+  id: string | number
+  fecha_emision?: string
+  medicamentos: { id?: number; medicamento: string; dosis: string; indicaciones: string }[]
 }
 
 // Colores por estado
@@ -50,16 +70,111 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
   const [observacionesPodologo, setObservacionesPodologo] = useState(cita.observaciones_podologo || "")
   const [procedimientos, setProcedimientos] = useState(cita.procedimientos_realizados || "")
   const [recetaModalOpen, setRecetaModalOpen] = useState(false)
-  const [recetas, setRecetas] = useState<{ id: string; medicamentos: Medicamento[] }[]>([])
+  const [recetasNuevas, setRecetasNuevas] = useState<{ id: string; medicamentos: Medicamento[] }[]>([])
+  const [recetasGuardadas, setRecetasGuardadas] = useState<RecetaGuardada[]>([])
   const [activeTab, setActiveTab] = useState("observaciones")
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Estado de ortesis
+  const [ortesisData, setOrtesisData] = useState<OrtesisData>({
+    tipoOrtesis: "",
+    talla: "",
+    fechaTomaMolde: undefined,
+    fechaEnvioLab: undefined,
+    fechaEntregaPaciente: undefined,
+    observaciones: "",
+  })
+
+  // Estado de evaluación
+  const [evaluacionData, setEvaluacionData] = useState<EvaluacionData>({
+    tipoPieIzq: "",
+    piNotas: "",
+    piUnas: "",
+    tipoPieDer: "",
+    pdNotas: "",
+    pdUnas: "",
+    tipoCalzado: "",
+    actividadFisica: "",
+    evaluacionVascular: "",
+  })
 
   const citaTime = parseISO(cita.fecha_hora_inicio)
-  const colors = estadoColors[cita.estado_id] || estadoColors[1]
+  const estadoId = typeof cita.estado_id === 'string' ? parseInt(cita.estado_id, 10) : cita.estado_id
+  const colors = estadoColors[estadoId] || estadoColors[1]
+  const isEditable = estadoId !== 2 // No editable si está completada
 
   // Calcular edad del paciente
   const edad = cita.paciente?.fecha_nacimiento 
     ? differenceInYears(new Date(), parseISO(cita.paciente.fecha_nacimiento))
     : null
+
+  // Cargar datos existentes
+  const loadDetail = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(ApiRoutes.citas.getDetail(cita.id))
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Cargar datos de la cita
+        if (data.cita) {
+          setObservacionesPodologo(data.cita.observaciones_podologo || "")
+          setProcedimientos(data.cita.procedimientos_realizados || "")
+        }
+
+        // Cargar evaluación
+        if (data.evaluacion) {
+          setEvaluacionData({
+            tipoPieIzq: data.evaluacion.tipo_pie_izq || "",
+            piNotas: data.evaluacion.pi_notas || "",
+            piUnas: data.evaluacion.pi_unas || "",
+            tipoPieDer: data.evaluacion.tipo_pie_der || "",
+            pdNotas: data.evaluacion.pd_notas || "",
+            pdUnas: data.evaluacion.pd_unas || "",
+            tipoCalzado: data.evaluacion.tipo_calzado || "",
+            actividadFisica: data.evaluacion.actividad_fisica || "",
+            evaluacionVascular: data.evaluacion.evaluacion_vascular || "",
+          })
+        }
+
+        // Cargar ortesis
+        if (data.ortesis) {
+          setOrtesisData({
+            tipoOrtesis: data.ortesis.tipo_ortesis || "",
+            talla: data.ortesis.talla_calzado || "",
+            fechaTomaMolde: data.ortesis.fecha_toma_molde ? new Date(data.ortesis.fecha_toma_molde) : undefined,
+            fechaEnvioLab: data.ortesis.fecha_envio_laboratorio ? new Date(data.ortesis.fecha_envio_laboratorio) : undefined,
+            fechaEntregaPaciente: data.ortesis.fecha_entrega_paciente ? new Date(data.ortesis.fecha_entrega_paciente) : undefined,
+            observaciones: data.ortesis.observaciones_lab || "",
+          })
+        }
+
+        // Cargar recetas guardadas
+        if (data.recetas && data.recetas.length > 0) {
+          setRecetasGuardadas(data.recetas.map((r: any) => ({
+            id: r.id,
+            fecha_emision: r.fecha_emision,
+            medicamentos: r.medicamentos.map((m: any) => ({
+              id: m.id,
+              medicamento: m.medicamento,
+              dosis: m.dosis || "",
+              indicaciones: m.indicaciones || "",
+            }))
+          })))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading detail:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [cita.id])
+
+  // Cargar al montar
+  useEffect(() => {
+    loadDetail()
+  }, [loadDetail])
 
   // Guardar receta del modal
   const handleSaveReceta = (medicamentos: Medicamento[]) => {
@@ -67,8 +182,76 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
       id: Date.now().toString(),
       medicamentos
     }
-    setRecetas([...recetas, nuevaReceta])
+    setRecetasNuevas([...recetasNuevas, nuevaReceta])
     setRecetaModalOpen(false)
+  }
+
+  // Guardar todo
+  const handleSaveAll = async () => {
+    setIsSaving(true)
+    
+    try {
+      const payload = {
+        observaciones_podologo: observacionesPodologo,
+        procedimientos_realizados: procedimientos,
+        recetas: recetasNuevas.map(r => ({
+          medicamentos: r.medicamentos.map(m => ({
+            nombre: m.nombre,
+            dosis: m.dosis,
+            indicaciones: m.indicaciones,
+          }))
+        })),
+        ortesis: {
+          tipo_ortesis: ortesisData.tipoOrtesis || null,
+          talla_calzado: ortesisData.talla || null,
+          fecha_toma_molde: ortesisData.fechaTomaMolde ? format(ortesisData.fechaTomaMolde, "yyyy-MM-dd") : null,
+          fecha_envio_laboratorio: ortesisData.fechaEnvioLab ? format(ortesisData.fechaEnvioLab, "yyyy-MM-dd") : null,
+          fecha_entrega_paciente: ortesisData.fechaEntregaPaciente ? format(ortesisData.fechaEntregaPaciente, "yyyy-MM-dd") : null,
+          observaciones_lab: ortesisData.observaciones || null,
+        },
+        evaluacion: {
+          tipo_pie_izq: evaluacionData.tipoPieIzq || null,
+          pi_notas: evaluacionData.piNotas || null,
+          pi_unas: evaluacionData.piUnas || null,
+          tipo_pie_der: evaluacionData.tipoPieDer || null,
+          pd_notas: evaluacionData.pdNotas || null,
+          pd_unas: evaluacionData.pdUnas || null,
+          tipo_calzado: evaluacionData.tipoCalzado || null,
+          actividad_fisica: evaluacionData.actividadFisica || null,
+          evaluacion_vascular: evaluacionData.evaluacionVascular || null,
+        },
+      }
+
+      const response = await fetch(ApiRoutes.citas.updateDetail(cita.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Error al guardar')
+      }
+
+      toast.success("Datos guardados correctamente")
+      // Limpiar recetas nuevas y recargar todo
+      setRecetasNuevas([])
+      await loadDetail()
+    } catch (error) {
+      console.error('Error saving:', error)
+      toast.error(error instanceof Error ? error.message : "Error al guardar los datos")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Cargando información...</span>
+      </div>
+    )
   }
 
   return (
@@ -83,10 +266,33 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
           <Badge className={cn("text-sm px-3 py-1", colors.bg, colors.text)}>
             {cita.estado_cita?.nombre || "Pendiente"}
           </Badge>
-          <Button className="gap-2" disabled>
-            <Save className="h-4 w-4" />
-            Guardar Todo
-          </Button>
+          {isEditable ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="gap-2" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSaving ? "Guardando..." : "Guardar Todo"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Confirmar guardado?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se guardarán todos los datos ingresados: diagnóstico, tratamientos, recetas, ortesis y evaluación del pie.
+                    Esta acción actualizará la información de la cita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSaveAll}>
+                    Confirmar y Guardar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Badge variant="secondary">Solo lectura</Badge>
+          )}
         </div>
       </div>
 
@@ -168,9 +374,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
         <TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-muted/80">
           <TabsTrigger 
             value="observaciones" 
-            className={cn(
-              "gap-2 py-3 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
-            )}
+            className="gap-2 py-3 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
           >
             <Stethoscope className="h-4 w-4" />
             <span className="hidden sm:inline">Tratamiento</span>
@@ -181,9 +385,9 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
           >
             <Pill className="h-4 w-4" />
             <span className="hidden sm:inline">Receta</span>
-            {recetas.length > 0 && (
+            {(recetasGuardadas.length + recetasNuevas.length) > 0 && (
               <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center text-xs">
-                {recetas.length}
+                {recetasGuardadas.length + recetasNuevas.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -231,6 +435,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                   value={observacionesPodologo}
                   onChange={(e) => setObservacionesPodologo(e.target.value)}
                   className="min-h-[120px]"
+                  disabled={!isEditable}
                 />
               </div>
 
@@ -242,6 +447,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                   value={procedimientos}
                   onChange={(e) => setProcedimientos(e.target.value)}
                   className="min-h-[120px]"
+                  disabled={!isEditable}
                 />
               </div>
             </CardContent>
@@ -262,30 +468,67 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                     Gestiona las recetas médicas para el paciente
                   </CardDescription>
                 </div>
-                <Button onClick={() => setRecetaModalOpen(true)} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Nueva Receta
-                </Button>
+                {isEditable && (
+                  <Button onClick={() => setRecetaModalOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Nueva Receta
+                  </Button>
+                )}
               </div>
             </CardHeader>
-            <CardContent>
-              {recetas.length === 0 ? (
-                <div className="text-center py-8 bg-muted/30 rounded-lg">
-                  <Pill className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No hay recetas registradas para esta cita</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recetas.map((receta, recetaIndex) => (
+            <CardContent className="space-y-4">
+              {/* Recetas guardadas */}
+              {recetasGuardadas.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Recetas guardadas</h4>
+                  {recetasGuardadas.map((receta, recetaIndex) => (
                     <div key={receta.id} className="border rounded-lg overflow-hidden">
-                      <div className="bg-primary/10 px-4 py-2 flex items-center justify-between">
-                        <span className="font-medium text-sm flex items-center gap-2">
+                      <div className="bg-green-50 px-4 py-2 flex items-center justify-between">
+                        <span className="font-medium text-sm flex items-center gap-2 text-green-700">
                           <FileText className="h-4 w-4" />
                           Receta #{recetaIndex + 1}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-green-600">
                           {receta.medicamentos.length} medicamento{receta.medicamentos.length !== 1 && 's'}
                         </span>
+                      </div>
+                      <div className="p-4">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 font-medium">Medicamento</th>
+                              <th className="text-left py-2 font-medium">Dosis</th>
+                              <th className="text-left py-2 font-medium">Indicaciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {receta.medicamentos.map((med, medIndex) => (
+                              <tr key={med.id || medIndex} className="border-b last:border-0">
+                                <td className="py-2">{med.medicamento}</td>
+                                <td className="py-2">{med.dosis}</td>
+                                <td className="py-2 text-muted-foreground">{med.indicaciones}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Recetas nuevas (pendientes de guardar) */}
+              {recetasNuevas.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-amber-600">Recetas pendientes de guardar</h4>
+                  {recetasNuevas.map((receta, recetaIndex) => (
+                    <div key={receta.id} className="border border-amber-200 rounded-lg overflow-hidden">
+                      <div className="bg-amber-50 px-4 py-2 flex items-center justify-between">
+                        <span className="font-medium text-sm flex items-center gap-2 text-amber-700">
+                          <FileText className="h-4 w-4" />
+                          Nueva Receta #{recetaIndex + 1}
+                        </span>
+                        <Badge variant="outline" className="text-amber-600 border-amber-300">Pendiente</Badge>
                       </div>
                       <div className="p-4">
                         <table className="w-full text-sm">
@@ -311,18 +554,36 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                   ))}
                 </div>
               )}
+
+              {/* Sin recetas */}
+              {recetasGuardadas.length === 0 && recetasNuevas.length === 0 && (
+                <div className="text-center py-8 bg-muted/30 rounded-lg">
+                  <Pill className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No hay recetas registradas para esta cita</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Tab: Ortesis */}
         <TabsContent value="ortesis" className="mt-6">
-          <OrtesisSection citaId={cita.id} />
+          <OrtesisSection 
+            citaId={cita.id} 
+            data={ortesisData}
+            onChange={setOrtesisData}
+            disabled={!isEditable}
+          />
         </TabsContent>
 
         {/* Tab: Evaluación del pie */}
         <TabsContent value="evaluacion" className="mt-6">
-          <EvaluacionPieSection citaId={cita.id} />
+          <EvaluacionPieSection 
+            citaId={cita.id}
+            data={evaluacionData}
+            onChange={setEvaluacionData}
+            disabled={!isEditable}
+          />
         </TabsContent>
 
         {/* Tab: Documentos */}

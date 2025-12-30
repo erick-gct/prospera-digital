@@ -37,6 +37,12 @@ export const ApiRoutes = {
     },
     byDate: (podologoId: string, date: string) =>
       `${API_BASE_URL}/appointments/by-date?podologoId=${podologoId}&date=${date}`,
+    getDetail: (citaId: string | number) =>
+      `${API_BASE_URL}/appointments/${citaId}/detail`,
+    updateDetail: (citaId: string | number) =>
+      `${API_BASE_URL}/appointments/${citaId}/detail`,
+    updateStatus: (citaId: string | number) =>
+      `${API_BASE_URL}/appointments/${citaId}/status`,
   },
 
   // Comunes (Catálogos)

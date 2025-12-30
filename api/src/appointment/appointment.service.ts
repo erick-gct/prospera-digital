@@ -212,4 +212,264 @@ export class AppointmentService {
 
     return citasEnriquecidas;
   }
+
+  /**
+   * Obtener detalle completo de una cita con datos relacionados
+   */
+  async getAppointmentDetail(citaId: number) {
+    // 1. Obtener la cita
+    const { data: cita, error: citaError } = await this.supabase
+      .from('cita')
+      .select('*')
+      .eq('id', citaId)
+      .single();
+
+    if (citaError || !cita) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    // 2. Obtener evaluación
+    const { data: evaluacion } = await this.supabase
+      .from('ficha_evaluacion')
+      .select('*')
+      .eq('cita_id', citaId)
+      .single();
+
+    // 3. Obtener ortesis
+    const { data: ortesis } = await this.supabase
+      .from('gestion_ortesis')
+      .select('*')
+      .eq('cita_id', citaId)
+      .single();
+
+    // 4. Obtener recetas con detalles
+    const { data: recetas } = await this.supabase
+      .from('receta')
+      .select('id, fecha_emision, diagnostico_receta')
+      .eq('cita_id', citaId)
+      .order('fecha_creacion', { ascending: false });
+
+    // Para cada receta, obtener sus detalles
+    const recetasConDetalles: any[] = [];
+    if (recetas && recetas.length > 0) {
+      for (const receta of recetas) {
+        const { data: detalles } = await this.supabase
+          .from('detalles_receta')
+          .select('id, medicamento, dosis, indicaciones')
+          .eq('receta_id', receta.id);
+
+        recetasConDetalles.push({
+          id: receta.id,
+          fecha_emision: receta.fecha_emision,
+          diagnostico_receta: receta.diagnostico_receta,
+          medicamentos: detalles || [],
+        });
+      }
+    }
+
+    return {
+      cita,
+      evaluacion: evaluacion || null,
+      ortesis: ortesis || null,
+      recetas: recetasConDetalles,
+    };
+  }
+
+  /**
+   * Actualizar detalle completo de una cita (tratamiento, recetas, ortesis, evaluación)
+   */
+  async updateAppointmentDetail(citaId: number, dto: any) {
+    // 1. Verificar que la cita existe y no está completada (estado_id != 2)
+    const { data: cita, error: citaError } = await this.supabase
+      .from('cita')
+      .select('id, estado_id')
+      .eq('id', citaId)
+      .single();
+
+    if (citaError || !cita) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    if (cita.estado_id === 2) {
+      throw new BadRequestException('No se puede modificar una cita completada');
+    }
+
+    const now = new Date().toISOString();
+
+    // 2. Actualizar tabla cita (observaciones y procedimientos)
+    const { error: updateCitaError } = await this.supabase
+      .from('cita')
+      .update({
+        observaciones_podologo: dto.observaciones_podologo || null,
+        procedimientos_realizados: dto.procedimientos_realizados || null,
+        fecha_modificacion: now,
+      })
+      .eq('id', citaId);
+
+    if (updateCitaError) {
+      throw new InternalServerErrorException(`Error actualizando cita: ${updateCitaError.message}`);
+    }
+
+    // 3. Upsert ficha_evaluacion (crear o actualizar)
+    if (dto.evaluacion) {
+      const evaluacionData = {
+        cita_id: citaId,
+        tipo_pie_izq: dto.evaluacion.tipo_pie_izq || null,
+        pi_notas: dto.evaluacion.pi_notas || null,
+        pi_unas: dto.evaluacion.pi_unas || null,
+        tipo_pie_der: dto.evaluacion.tipo_pie_der || null,
+        pd_notas: dto.evaluacion.pd_notas || null,
+        pd_unas: dto.evaluacion.pd_unas || null,
+        tipo_calzado: dto.evaluacion.tipo_calzado || null,
+        actividad_fisica: dto.evaluacion.actividad_fisica || null,
+        evaluacion_vascular: dto.evaluacion.evaluacion_vascular || null,
+        fecha_modificacion: now,
+      };
+
+      // Verificar si ya existe
+      const { data: existingEval } = await this.supabase
+        .from('ficha_evaluacion')
+        .select('id')
+        .eq('cita_id', citaId)
+        .single();
+
+      if (existingEval) {
+        // Update
+        const { error } = await this.supabase
+          .from('ficha_evaluacion')
+          .update(evaluacionData)
+          .eq('cita_id', citaId);
+        if (error) throw new InternalServerErrorException(`Error actualizando evaluación: ${error.message}`);
+      } else {
+        // Insert
+        const { error } = await this.supabase
+          .from('ficha_evaluacion')
+          .insert({ ...evaluacionData, fecha_creacion: now });
+        if (error) throw new InternalServerErrorException(`Error creando evaluación: ${error.message}`);
+      }
+    }
+
+    // 4. Upsert gestion_ortesis (crear o actualizar)
+    if (dto.ortesis) {
+      const ortesisData = {
+        cita_id: citaId,
+        tipo_ortesis: dto.ortesis.tipo_ortesis || null,
+        talla_calzado: dto.ortesis.talla_calzado || null,
+        fecha_toma_molde: dto.ortesis.fecha_toma_molde || null,
+        fecha_envio_laboratorio: dto.ortesis.fecha_envio_laboratorio || null,
+        fecha_entrega_paciente: dto.ortesis.fecha_entrega_paciente || null,
+        observaciones_lab: dto.ortesis.observaciones_lab || null,
+        fecha_modificacion: now,
+      };
+
+      // Verificar si ya existe
+      const { data: existingOrtesis } = await this.supabase
+        .from('gestion_ortesis')
+        .select('id')
+        .eq('cita_id', citaId)
+        .single();
+
+      if (existingOrtesis) {
+        // Update
+        const { error } = await this.supabase
+          .from('gestion_ortesis')
+          .update(ortesisData)
+          .eq('cita_id', citaId);
+        if (error) throw new InternalServerErrorException(`Error actualizando ortesis: ${error.message}`);
+      } else {
+        // Insert
+        const { error } = await this.supabase
+          .from('gestion_ortesis')
+          .insert({ ...ortesisData, fecha_creacion: now });
+        if (error) throw new InternalServerErrorException(`Error creando ortesis: ${error.message}`);
+      }
+    }
+
+    // 5. Insertar recetas nuevas (no actualizamos las existentes)
+    if (dto.recetas && dto.recetas.length > 0) {
+      for (const receta of dto.recetas) {
+        if (receta.medicamentos && receta.medicamentos.length > 0) {
+          // Crear la receta
+          const { data: newReceta, error: recetaError } = await this.supabase
+            .from('receta')
+            .insert({
+              cita_id: citaId,
+              fecha_emision: now,
+              diagnostico_receta: null, // El diagnóstico ahora está en observaciones_podologo
+              fecha_creacion: now,
+            })
+            .select('id')
+            .single();
+
+          if (recetaError || !newReceta) {
+            throw new InternalServerErrorException(`Error creando receta: ${recetaError?.message}`);
+          }
+
+          // Insertar detalles de receta
+          const detalles = receta.medicamentos.map((med: any) => ({
+            receta_id: newReceta.id,
+            medicamento: med.nombre,
+            dosis: med.dosis || null,
+            indicaciones: med.indicaciones || null,
+          }));
+
+          const { error: detallesError } = await this.supabase
+            .from('detalles_receta')
+            .insert(detalles);
+
+          if (detallesError) {
+            throw new InternalServerErrorException(`Error creando detalles de receta: ${detallesError.message}`);
+          }
+        }
+      }
+    }
+
+    return { message: 'Datos de la cita guardados correctamente' };
+  }
+
+  /**
+   * Cambiar el estado de una cita
+   */
+  async updateStatus(citaId: number, estadoId: number) {
+    // Verificar que el estado es válido (1, 2 o 3)
+    if (![1, 2, 3].includes(estadoId)) {
+      throw new BadRequestException('Estado no válido');
+    }
+
+    // Verificar que la cita existe
+    const { data: cita, error: citaError } = await this.supabase
+      .from('cita')
+      .select('id, estado_id')
+      .eq('id', citaId)
+      .single();
+
+    if (citaError || !cita) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    // Actualizar el estado
+    const { error: updateError } = await this.supabase
+      .from('cita')
+      .update({
+        estado_id: estadoId,
+        fecha_modificacion: new Date().toISOString(),
+      })
+      .eq('id', citaId);
+
+    if (updateError) {
+      throw new InternalServerErrorException(`Error actualizando estado: ${updateError.message}`);
+    }
+
+    // Obtener nombre del estado
+    const { data: estado } = await this.supabase
+      .from('estado_cita')
+      .select('nombre')
+      .eq('id', estadoId)
+      .single();
+
+    return {
+      message: 'Estado actualizado correctamente',
+      nuevo_estado: estado?.nombre || 'Desconocido'
+    };
+  }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { format } from "date-fns"
 import { ClipboardList } from "lucide-react"
 import { createClient } from "@/lib/supabase/cliente"
@@ -31,33 +31,34 @@ export default function GestionCitasPage() {
     fetchUser()
   }, [])
 
+  // Función para cargar citas
+  const fetchCitas = useCallback(async () => {
+    if (!podologoId) return
+
+    setIsLoading(true)
+    try {
+      const dateStr = format(selectedDate, "yyyy-MM-dd")
+      const response = await fetch(ApiRoutes.citas.byDate(podologoId, dateStr))
+      
+      if (response.ok) {
+        const data = await response.json()
+        setCitas(data)
+      } else {
+        console.error("Error fetching citas:", response.status)
+        setCitas([])
+      }
+    } catch (error) {
+      console.error("Error fetching citas:", error)
+      setCitas([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [podologoId, selectedDate])
+
   // Cargar citas cuando cambia la fecha o el podólogo
   useEffect(() => {
-    const fetchCitas = async () => {
-      if (!podologoId) return
-
-      setIsLoading(true)
-      try {
-        const dateStr = format(selectedDate, "yyyy-MM-dd")
-        const response = await fetch(ApiRoutes.citas.byDate(podologoId, dateStr))
-        
-        if (response.ok) {
-          const data = await response.json()
-          setCitas(data)
-        } else {
-          console.error("Error fetching citas:", response.status)
-          setCitas([])
-        }
-      } catch (error) {
-        console.error("Error fetching citas:", error)
-        setCitas([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchCitas()
-  }, [podologoId, selectedDate])
+  }, [fetchCitas])
 
   // Manejar selección de cita
   const handleSelectCita = (cita: CitaGestion) => {
@@ -69,6 +70,8 @@ export default function GestionCitasPage() {
   const handleBack = () => {
     setViewMode("list")
     setSelectedCita(null)
+    // Refrescar la lista al volver
+    fetchCitas()
   }
 
   // Manejar cambio de fecha
@@ -113,6 +116,7 @@ export default function GestionCitasPage() {
             isLoading={isLoading}
             onSelectCita={handleSelectCita}
             selectedDate={selectedDate}
+            onRefresh={fetchCitas}
           />
         </div>
       )}

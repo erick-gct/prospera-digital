@@ -1,12 +1,32 @@
 "use client"
 
+import { useState } from "react"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { Clock, User, FileText, ClipboardEdit, CalendarX } from "lucide-react"
+import { Clock, User, FileText, ClipboardEdit, CalendarX, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import { ApiRoutes } from "@/lib/api-routes"
 
 // Tipo de cita para gestión
 export interface CitaGestion {
@@ -37,16 +57,73 @@ interface AppointmentsListProps {
   isLoading: boolean
   onSelectCita: (cita: CitaGestion) => void
   selectedDate: Date
+  onRefresh: () => void
 }
 
 // Colores por estado
 const estadoColors: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" }, // Pendiente
-  2: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200" }, // Completada
-  3: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" }, // Cancelada
+  1: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  2: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200" },
+  3: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
 }
 
-export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate }: AppointmentsListProps) {
+// Opciones de estado
+const ESTADO_OPTIONS = [
+  { value: "1", label: "Reservada" },
+  { value: "2", label: "Completada" },
+]
+
+export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate, onRefresh }: AppointmentsListProps) {
+  const [loadingCitaId, setLoadingCitaId] = useState<string | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    citaId: string
+    nombrePaciente: string
+    nuevoEstado: number
+    accion: string
+  }>({ open: false, citaId: "", nombrePaciente: "", nuevoEstado: 0, accion: "" })
+
+  const handleChangeStatus = async (citaId: string, estadoId: number) => {
+    setLoadingCitaId(citaId)
+    try {
+      const response = await fetch(ApiRoutes.citas.updateStatus(citaId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estadoId }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Error al cambiar estado')
+      }
+
+      const result = await response.json()
+      toast.success(`Cita ${result.nuevo_estado.toLowerCase()}`)
+      onRefresh()
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error(error instanceof Error ? error.message : "Error al cambiar estado")
+    } finally {
+      setLoadingCitaId(null)
+      setConfirmDialog({ open: false, citaId: "", nombrePaciente: "", nuevoEstado: 0, accion: "" })
+    }
+  }
+
+  const openConfirmDialog = (cita: CitaGestion, nuevoEstado: number) => {
+    const acciones: Record<number, string> = {
+      1: "regresar a Reservada",
+      2: "marcar como Completada",
+      3: "cancelar",
+    }
+    setConfirmDialog({
+      open: true,
+      citaId: cita.id,
+      nombrePaciente: cita.paciente ? `${cita.paciente.nombres} ${cita.paciente.apellidos}` : "Paciente",
+      nuevoEstado,
+      accion: acciones[nuevoEstado] || "cambiar estado",
+    })
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -70,78 +147,154 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate 
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header con conteo */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{citas.length}</span> cita{citas.length !== 1 && 's'} para {format(selectedDate, "EEEE, d 'de' MMMM", { locale: es })}
-        </p>
-      </div>
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{citas.length}</span> cita{citas.length !== 1 && 's'} para {format(selectedDate, "EEEE, d 'de' MMMM", { locale: es })}
+          </p>
+        </div>
 
-      {/* Lista de citas */}
-      <div className="space-y-3">
-        {citas.map((cita) => {
-          const citaTime = parseISO(cita.fecha_hora_inicio)
-          const colors = estadoColors[cita.estado_id] || estadoColors[1]
+        <div className="space-y-3">
+          {citas.map((cita) => {
+            const citaTime = parseISO(cita.fecha_hora_inicio)
+            const estadoId = typeof cita.estado_id === 'string' ? parseInt(cita.estado_id, 10) : cita.estado_id
+            const colors = estadoColors[estadoId] || estadoColors[1]
+            const isUpdating = loadingCitaId === cita.id
 
-          return (
-            <div
-              key={cita.id}
-              className={cn(
-                "p-4 rounded-xl border-2 bg-white transition-all hover:shadow-md",
-                colors.border
-              )}
-            >
-              <div className="flex items-start justify-between gap-4">
-                {/* Info de la cita */}
-                <div className="flex-1 space-y-2">
-                  {/* Hora y estado */}
-                  <div className="flex items-center gap-3">
-                    <div className={cn("flex items-center gap-2 font-semibold text-lg", colors.text)}>
-                      <Clock className="h-5 w-5" />
-                      {format(citaTime, "HH:mm")}
+            return (
+              <div
+                key={cita.id}
+                className={cn(
+                  "p-4 rounded-xl border-2 bg-white transition-all hover:shadow-md",
+                  colors.border
+                )}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("flex items-center gap-2 font-semibold text-lg", colors.text)}>
+                        <Clock className="h-5 w-5" />
+                        {format(citaTime, "HH:mm")}
+                      </div>
+                      <Badge variant="outline" className={cn("text-xs", colors.bg, colors.text, colors.border)}>
+                        {cita.estado_cita?.nombre || "Pendiente"}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className={cn("text-xs", colors.bg, colors.text, colors.border)}>
-                      {cita.estado_cita?.nombre || "Pendiente"}
-                    </Badge>
+
+                    {cita.paciente && (
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {cita.paciente.nombres} {cita.paciente.apellidos}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          • C.I. {cita.paciente.cedula}
+                        </span>
+                      </div>
+                    )}
+
+                    {cita.motivo_cita && (
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <FileText className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <span>{cita.motivo_cita}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Paciente */}
-                  {cita.paciente && (
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">
-                        {cita.paciente.nombres} {cita.paciente.apellidos}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        • C.I. {cita.paciente.cedula}
-                      </span>
-                    </div>
-                  )}
+                  {/* Acciones */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {/* Botón de registrar */}
+                    <Button
+                      onClick={() => onSelectCita(cita)}
+                      className="gap-2"
+                      variant="default"
+                      disabled={isUpdating}
+                    >
+                      <ClipboardEdit className="h-4 w-4" />
+                      <span className="hidden sm:inline">Acceder a la Cita</span>
+                    </Button>
 
-                  {/* Motivo */}
-                  {cita.motivo_cita && (
-                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <FileText className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <span>{cita.motivo_cita}</span>
-                    </div>
-                  )}
+                    {/* Select de estado */}
+                    {estadoId !== 3 && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">Estado</span>
+                        <Select
+                          value={estadoId.toString()}
+                          onValueChange={(value) => openConfirmDialog(cita, parseInt(value, 10))}
+                          disabled={isUpdating}
+                        >
+                          <SelectTrigger className="w-[110px] h-8 text-xs">
+                            {isUpdating ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ESTADO_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value} className="text-xs">
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Botón cancelar */}
+                    {estadoId !== 3 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => openConfirmDialog(cita, 3)}
+                        disabled={isUpdating}
+                        title="Cancelar cita"
+                      >
+                        <CalendarX className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-
-                {/* Botón de acción */}
-                <Button
-                  onClick={() => onSelectCita(cita)}
-                  className="gap-2 shrink-0"
-                  variant="default"
-                >
-                  <ClipboardEdit className="h-4 w-4" />
-                  Registrar Información
-                </Button>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ ...confirmDialog, open: false })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmDialog.nuevoEstado === 3 ? "¿Cancelar esta cita?" : "¿Cambiar estado de la cita?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog.nuevoEstado === 3 ? (
+                <>
+                  Estás a punto de <span className="font-semibold text-red-600">cancelar</span> la cita de{" "}
+                  <span className="font-semibold">{confirmDialog.nombrePaciente}</span>.
+                </>
+              ) : (
+                <>
+                  Estás a punto de <span className="font-semibold">{confirmDialog.accion}</span> la cita de{" "}
+                  <span className="font-semibold">{confirmDialog.nombrePaciente}</span>.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleChangeStatus(confirmDialog.citaId, confirmDialog.nuevoEstado)}
+              className={confirmDialog.nuevoEstado === 3 ? "bg-red-600 hover:bg-red-700" : ""}
+            >
+              {confirmDialog.nuevoEstado === 3 ? "Sí, cancelar cita" : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

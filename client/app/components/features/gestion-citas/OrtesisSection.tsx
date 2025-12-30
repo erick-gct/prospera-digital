@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Footprints, CalendarIcon } from "lucide-react"
@@ -24,8 +23,21 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
+// Tipo para los datos de ortesis
+export interface OrtesisData {
+  tipoOrtesis: string
+  talla: string
+  fechaTomaMolde: Date | undefined
+  fechaEnvioLab: Date | undefined
+  fechaEntregaPaciente: Date | undefined
+  observaciones: string
+}
+
 interface OrtesisSectionProps {
   citaId: string
+  data: OrtesisData
+  onChange: (data: OrtesisData) => void
+  disabled?: boolean
 }
 
 const TIPO_ORTESIS_OPTIONS = [
@@ -38,13 +50,10 @@ const TIPO_ORTESIS_OPTIONS = [
   { value: "otro", label: "Otro" },
 ]
 
-export function OrtesisSection({ citaId }: OrtesisSectionProps) {
-  const [tipoOrtesis, setTipoOrtesis] = useState("")
-  const [talla, setTalla] = useState("")
-  const [fechaTomaMolde, setFechaTomaMolde] = useState<Date | undefined>(undefined)
-  const [fechaEnvioLab, setFechaEnvioLab] = useState<Date | undefined>(undefined)
-  const [fechaEntregaPaciente, setFechaEntregaPaciente] = useState<Date | undefined>(undefined)
-  const [observaciones, setObservaciones] = useState("")
+export function OrtesisSection({ citaId, data, onChange, disabled = false }: OrtesisSectionProps) {
+  const updateField = <K extends keyof OrtesisData>(field: K, value: OrtesisData[K]) => {
+    onChange({ ...data, [field]: value })
+  }
 
   return (
     <Card>
@@ -62,7 +71,11 @@ export function OrtesisSection({ citaId }: OrtesisSectionProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="tipo-ortesis">Tipo de Ortesis</Label>
-            <Select value={tipoOrtesis} onValueChange={setTipoOrtesis}>
+            <Select 
+              value={data.tipoOrtesis} 
+              onValueChange={(v) => updateField("tipoOrtesis", v)}
+              disabled={disabled}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona el tipo" />
               </SelectTrigger>
@@ -81,8 +94,9 @@ export function OrtesisSection({ citaId }: OrtesisSectionProps) {
             <Input
               id="talla"
               placeholder="Ej: 42"
-              value={talla}
-              onChange={(e) => setTalla(e.target.value)}
+              value={data.talla}
+              onChange={(e) => updateField("talla", e.target.value)}
+              disabled={disabled}
             />
           </div>
         </div>
@@ -98,18 +112,19 @@ export function OrtesisSection({ citaId }: OrtesisSectionProps) {
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !fechaTomaMolde && "text-muted-foreground"
+                    !data.fechaTomaMolde && "text-muted-foreground"
                   )}
+                  disabled={disabled}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fechaTomaMolde ? format(fechaTomaMolde, "PPP", { locale: es }) : "Seleccionar fecha"}
+                  {data.fechaTomaMolde ? format(data.fechaTomaMolde, "PPP", { locale: es }) : "Seleccionar fecha"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={fechaTomaMolde}
-                  onSelect={setFechaTomaMolde}
+                  selected={data.fechaTomaMolde}
+                  onSelect={(date) => updateField("fechaTomaMolde", date)}
                   locale={es}
                   initialFocus
                 />
@@ -126,18 +141,19 @@ export function OrtesisSection({ citaId }: OrtesisSectionProps) {
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !fechaEnvioLab && "text-muted-foreground"
+                    !data.fechaEnvioLab && "text-muted-foreground"
                   )}
+                  disabled={disabled}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fechaEnvioLab ? format(fechaEnvioLab, "PPP", { locale: es }) : "Seleccionar fecha"}
+                  {data.fechaEnvioLab ? format(data.fechaEnvioLab, "PPP", { locale: es }) : "Seleccionar fecha"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={fechaEnvioLab}
-                  onSelect={setFechaEnvioLab}
+                  selected={data.fechaEnvioLab}
+                  onSelect={(date) => updateField("fechaEnvioLab", date)}
                   locale={es}
                   initialFocus
                 />
@@ -154,18 +170,19 @@ export function OrtesisSection({ citaId }: OrtesisSectionProps) {
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !fechaEntregaPaciente && "text-muted-foreground"
+                    !data.fechaEntregaPaciente && "text-muted-foreground"
                   )}
+                  disabled={disabled}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fechaEntregaPaciente ? format(fechaEntregaPaciente, "PPP", { locale: es }) : "Seleccionar fecha"}
+                  {data.fechaEntregaPaciente ? format(data.fechaEntregaPaciente, "PPP", { locale: es }) : "Seleccionar fecha"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={fechaEntregaPaciente}
-                  onSelect={setFechaEntregaPaciente}
+                  selected={data.fechaEntregaPaciente}
+                  onSelect={(date) => updateField("fechaEntregaPaciente", date)}
                   locale={es}
                   initialFocus
                 />
@@ -180,9 +197,10 @@ export function OrtesisSection({ citaId }: OrtesisSectionProps) {
           <Textarea
             id="observaciones-ortesis"
             placeholder="Especificaciones del material, estado del pedido, comunicaciones con el laboratorio, etc..."
-            value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
+            value={data.observaciones}
+            onChange={(e) => updateField("observaciones", e.target.value)}
             className="min-h-[80px]"
+            disabled={disabled}
           />
         </div>
       </CardContent>

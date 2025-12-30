@@ -1,6 +1,7 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Query, Param } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { UpdateAppointmentDetailDto } from './dto/update-appointment-detail.dto';
 
 @Controller('appointments')
 export class AppointmentController {
@@ -26,5 +27,25 @@ export class AppointmentController {
     @Query('date') date: string, // Formato: YYYY-MM-DD
   ) {
     return this.appointmentService.findByDate(podologoId, date);
+  }
+
+  @Get(':id/detail')
+  getDetail(@Param('id') id: string) {
+    return this.appointmentService.getAppointmentDetail(parseInt(id, 10));
+  }
+  @Patch(':id/detail')
+  updateDetail(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateAppointmentDetailDto,
+  ) {
+    return this.appointmentService.updateAppointmentDetail(parseInt(id, 10), updateDto);
+  }
+
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id') id: string,
+    @Body('estadoId') estadoId: number,
+  ) {
+    return this.appointmentService.updateStatus(parseInt(id, 10), estadoId);
   }
 }
