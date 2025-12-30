@@ -1,11 +1,16 @@
-import { Controller, Post, Get, Patch, Body, Query, Param } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Query, Param, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDetailDto } from './dto/update-appointment-detail.dto';
+import { StorageService } from '../storage/storage.service';
 
 @Controller('appointments')
 export class AppointmentController {
-  constructor(private readonly appointmentService: AppointmentService) { }
+  constructor(
+    private readonly appointmentService: AppointmentService,
+    private readonly storageService: StorageService,
+  ) { }
 
   @Post()
   create(@Body() createAppointmentDto: CreateAppointmentDto) {
@@ -24,7 +29,7 @@ export class AppointmentController {
   @Get('by-date')
   findByDate(
     @Query('podologoId') podologoId: string,
-    @Query('date') date: string, // Formato: YYYY-MM-DD
+    @Query('date') date: string,
   ) {
     return this.appointmentService.findByDate(podologoId, date);
   }
@@ -33,6 +38,7 @@ export class AppointmentController {
   getDetail(@Param('id') id: string) {
     return this.appointmentService.getAppointmentDetail(parseInt(id, 10));
   }
+
   @Patch(':id/detail')
   updateDetail(
     @Param('id') id: string,
@@ -55,5 +61,43 @@ export class AppointmentController {
     @Body('nuevaFechaHora') nuevaFechaHora: string,
   ) {
     return this.appointmentService.reschedule(parseInt(id, 10), nuevaFechaHora);
+  }
+
+  // ================== DOCUMENTOS ==================
+
+  @Get(':id/documents')
+  getDocuments(@Param('id') id: string) {
+    return this.appointmentService.getDocuments(parseInt(id, 10));
+  }
+
+  @Post(':id/documents')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @Param('id') id: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }), // 10MB max
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|pdf|gif|webp)' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    // 1. Subir archivo a Supabase Storage
+    const uploadResult = await this.storageService.uploadFile(file, `citas/${id}`);
+
+    // 2. Guardar referencia en documentos_clinicos
+    return this.appointmentService.uploadDocument(parseInt(id, 10), {
+      path: uploadResult.path,
+      url: uploadResult.url,
+      nombre: file.originalname,
+      tipo: file.mimetype,
+    });
+  }
+
+  @Delete('documents/:documentId')
+  deleteDocument(@Param('documentId') documentId: string) {
+    return this.appointmentService.deleteDocument(parseInt(documentId, 10));
   }
 }

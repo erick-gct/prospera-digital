@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { format, parseISO, differenceInYears } from "date-fns"
 import { es } from "date-fns/locale"
 import { 
@@ -44,7 +44,7 @@ import { CitaGestion } from "./AppointmentsList"
 import { RecetaModal, Medicamento } from "./RecetaModal"
 import { OrtesisSection, OrtesisData } from "./OrtesisSection"
 import { EvaluacionPieSection, EvaluacionData } from "./EvaluacionPieSection"
-import { DocumentosSection } from "./DocumentosSection"
+import { DocumentosSection, DocumentosSectionRef } from "./DocumentosSection"
 
 interface AppointmentDetailProps {
   cita: CitaGestion
@@ -75,6 +75,9 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
   const [activeTab, setActiveTab] = useState("observaciones")
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Ref para documentos
+  const documentosRef = useRef<DocumentosSectionRef>(null)
 
   // Estado de ortesis
   const [ortesisData, setOrtesisData] = useState<OrtesisData>({
@@ -231,6 +234,21 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.message || 'Error al guardar')
+      }
+
+      // Subir documentos pendientes
+      const pendingFiles = documentosRef.current?.getPendingFiles() || []
+      if (pendingFiles.length > 0) {
+        for (const file of pendingFiles) {
+          const formData = new FormData()
+          formData.append('file', file)
+          await fetch(ApiRoutes.citas.uploadDocument(cita.id), {
+            method: 'POST',
+            body: formData,
+          })
+        }
+        documentosRef.current?.clearPendingFiles()
+        documentosRef.current?.reload()
       }
 
       toast.success("Datos guardados correctamente")
@@ -588,7 +606,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
 
         {/* Tab: Documentos */}
         <TabsContent value="documentos" className="mt-6">
-          <DocumentosSection citaId={cita.id} />
+          <DocumentosSection ref={documentosRef} citaId={cita.id} disabled={!isEditable} />
         </TabsContent>
       </Tabs>
 

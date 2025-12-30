@@ -511,4 +511,72 @@ export class AppointmentService {
       nueva_fecha: nuevaFechaHora
     };
   }
+
+  /**
+   * Subir un documento clínico para una cita
+   */
+  async uploadDocument(citaId: number, fileData: { path: string; url: string; nombre: string; tipo: string }) {
+    // Verificar que la cita existe
+    const { data: cita, error: citaError } = await this.supabase
+      .from('cita')
+      .select('id')
+      .eq('id', citaId)
+      .single();
+
+    if (citaError || !cita) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    // Insertar en documentos_clinicos
+    const { data, error } = await this.supabase
+      .from('documentos_clinicos')
+      .insert({
+        cita_id: citaId,
+        url_almacenamiento: fileData.url,
+        nombre_archivo: fileData.nombre,
+        tipo_archivo: fileData.tipo,
+        fecha_subida: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new InternalServerErrorException(`Error guardando documento: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Obtener documentos de una cita
+   */
+  async getDocuments(citaId: number) {
+    const { data, error } = await this.supabase
+      .from('documentos_clinicos')
+      .select('id, url_almacenamiento, nombre_archivo, tipo_archivo, fecha_subida')
+      .eq('cita_id', citaId)
+      .order('fecha_subida', { ascending: false });
+
+    if (error) {
+      throw new InternalServerErrorException(`Error obteniendo documentos: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Eliminar un documento
+   */
+  async deleteDocument(documentId: number) {
+    const { error } = await this.supabase
+      .from('documentos_clinicos')
+      .delete()
+      .eq('id', documentId);
+
+    if (error) {
+      throw new InternalServerErrorException(`Error eliminando documento: ${error.message}`);
+    }
+
+    return { message: 'Documento eliminado correctamente' };
+  }
 }

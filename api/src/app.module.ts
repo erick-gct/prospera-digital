@@ -8,6 +8,7 @@ import { CommonModule } from './common/common.module';
 import { PatientModule } from './patient/patient.module';
 import { PodologoModule } from './podologo/podologo.module';
 import { AppointmentModule } from './appointment/appointment.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AppointmentModule } from './appointment/appointment.module';
     PodologoModule,
     MailModule,
     AppointmentModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
