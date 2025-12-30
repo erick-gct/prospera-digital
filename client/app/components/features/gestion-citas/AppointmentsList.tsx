@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { Clock, User, FileText, ClipboardEdit, CalendarX, Loader2 } from "lucide-react"
+import { Clock, User, FileText, ClipboardEdit, CalendarX, CalendarClock, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { ApiRoutes } from "@/lib/api-routes"
+import { RescheduleModal } from "./RescheduleModal"
 
 // Tipo de cita para gestión
 export interface CitaGestion {
@@ -82,6 +83,12 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
     nuevoEstado: number
     accion: string
   }>({ open: false, citaId: "", nombrePaciente: "", nuevoEstado: 0, accion: "" })
+
+  // Estado para modal de reagendamiento
+  const [rescheduleModal, setRescheduleModal] = useState<{
+    open: boolean
+    cita: CitaGestion | null
+  }>({ open: false, cita: null })
 
   const handleChangeStatus = async (citaId: string, estadoId: number) => {
     setLoadingCitaId(citaId)
@@ -202,59 +209,80 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                     )}
                   </div>
 
-                  {/* Acciones */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* Botón de registrar */}
+                  {/* Acciones en dos filas */}
+                  <div className="flex flex-col gap-2 shrink-0">
+                    {/* Fila 1: Botón principal */}
                     <Button
                       onClick={() => onSelectCita(cita)}
-                      className="gap-2"
+                      className="gap-2 w-full"
                       variant="default"
                       disabled={isUpdating}
                     >
                       <ClipboardEdit className="h-4 w-4" />
-                      <span className="hidden sm:inline">Acceder a la Cita</span>
+                      Acceder a la Cita
                     </Button>
 
-                    {/* Select de estado */}
-                    {estadoId !== 3 && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-muted-foreground">Estado</span>
-                        <Select
-                          value={estadoId.toString()}
-                          onValueChange={(value) => openConfirmDialog(cita, parseInt(value, 10))}
+                    {/* Fila 2: Acciones secundarias */}
+                    <div className="flex items-center gap-2">
+                      {/* Botón de reagendar (solo si está reservada) */}
+                      {estadoId === 1 && (
+         
+                          <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 h-8 text-xs flex-1"
+                          onClick={() => setRescheduleModal({ open: true, cita })}
                           disabled={isUpdating}
+                          title="Reagendar cita"
                         >
-                          <SelectTrigger className="w-[110px] h-8 text-xs">
-                            {isUpdating ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <SelectValue />
-                            )}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ESTADO_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value} className="text-xs">
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                          <CalendarClock className="h-4 w-4" />
+                          <span className="hidden sm:inline">Reagendar</span>
+                        </Button>
+                    
+                          
+                      )}
 
-                    {/* Botón cancelar */}
-                    {estadoId !== 3 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => openConfirmDialog(cita, 3)}
-                        disabled={isUpdating}
-                        title="Cancelar cita"
-                      >
-                        <CalendarX className="h-5 w-5" />
-                      </Button>
-                    )}
+                      {/* Select de estado */}
+                      {estadoId !== 3 && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-muted-foreground">Estado</span>
+                          <Select
+                            value={estadoId.toString()}
+                            onValueChange={(value) => openConfirmDialog(cita, parseInt(value, 10))}
+                            disabled={isUpdating}
+                          >
+                            <SelectTrigger className="w-[100px] h-7 text-xs">
+                              {isUpdating ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <SelectValue />
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ESTADO_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value} className="text-xs">
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Botón cancelar */}
+                      {estadoId !== 3 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => openConfirmDialog(cita, 3)}
+                          disabled={isUpdating}
+                          title="Cancelar cita"
+                        >
+                          <CalendarX className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -295,6 +323,22 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Reagendamiento */}
+      {rescheduleModal.cita && (
+        <RescheduleModal
+          open={rescheduleModal.open}
+          onOpenChange={(open) => setRescheduleModal({ ...rescheduleModal, open })}
+          citaId={rescheduleModal.cita.id}
+          nombrePaciente={
+            rescheduleModal.cita.paciente 
+              ? `${rescheduleModal.cita.paciente.nombres} ${rescheduleModal.cita.paciente.apellidos}`
+              : "Paciente"
+          }
+          fechaActual={parseISO(rescheduleModal.cita.fecha_hora_inicio)}
+          onSuccess={onRefresh}
+        />
+      )}
     </>
   )
 }

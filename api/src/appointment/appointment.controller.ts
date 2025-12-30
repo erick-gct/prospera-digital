@@ -48,4 +48,12 @@ export class AppointmentController {
   ) {
     return this.appointmentService.updateStatus(parseInt(id, 10), estadoId);
   }
+
+  @Patch(':id/reschedule')
+  reschedule(
+    @Param('id') id: string,
+    @Body('nuevaFechaHora') nuevaFechaHora: string,
+  ) {
+    return this.appointmentService.reschedule(parseInt(id, 10), nuevaFechaHora);
+  }
 }

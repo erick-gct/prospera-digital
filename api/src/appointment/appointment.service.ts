@@ -472,4 +472,43 @@ export class AppointmentService {
       nuevo_estado: estado?.nombre || 'Desconocido'
     };
   }
+
+  /**
+   * Reagendar una cita (cambiar fecha y hora)
+   */
+  async reschedule(citaId: number, nuevaFechaHora: string) {
+    // Verificar que la cita existe
+    const { data: cita, error: citaError } = await this.supabase
+      .from('cita')
+      .select('id, estado_id, paciente_id')
+      .eq('id', citaId)
+      .single();
+
+    if (citaError || !cita) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    // Solo se puede reagendar citas en estado "Reservada" (1)
+    if (cita.estado_id !== 1) {
+      throw new BadRequestException('Solo se pueden reagendar citas en estado Reservada');
+    }
+
+    // Actualizar la fecha y hora
+    const { error: updateError } = await this.supabase
+      .from('cita')
+      .update({
+        fecha_hora_inicio: nuevaFechaHora,
+        fecha_modificacion: new Date().toISOString(),
+      })
+      .eq('id', citaId);
+
+    if (updateError) {
+      throw new InternalServerErrorException(`Error reagendando cita: ${updateError.message}`);
+    }
+
+    return {
+      message: 'Cita reagendada correctamente',
+      nueva_fecha: nuevaFechaHora
+    };
+  }
 }

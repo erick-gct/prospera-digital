@@ -43,6 +43,8 @@ export const ApiRoutes = {
       `${API_BASE_URL}/appointments/${citaId}/detail`,
     updateStatus: (citaId: string | number) =>
       `${API_BASE_URL}/appointments/${citaId}/status`,
+    reschedule: (citaId: string | number) =>
+      `${API_BASE_URL}/appointments/${citaId}/reschedule`,
   },
 
   // Comunes (Catálogos)
