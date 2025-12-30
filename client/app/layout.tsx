@@ -3,7 +3,7 @@ import { Inter, Roboto } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner"; // 1. Importar Toaster
-
+import Image from "next/image";
 
 // Configuración de Inter como fuente principal
 const inter = Inter({
@@ -23,6 +23,10 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Prospera Digital LLC | Consultorio Podológico",
   description: "Sistema de gestión para consultorio podológico",
+  icons: {
+    icon: "/assets/logo/logo-pie.ico", 
+    // apple: "/assets/nombre-de-tu-archivo.png", // Opcional: si quieres que también sirva para iPhone/iPad
+  },
 };
 
 export default function RootLayout({

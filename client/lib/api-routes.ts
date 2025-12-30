@@ -59,4 +59,18 @@ export const ApiRoutes = {
     paises: `${API_BASE_URL}/common/paises`,
     tiposSangre: `${API_BASE_URL}/common/tipos-sangre`,
   },
+
+  // Historial Médico
+  historial: {
+    searchPatients: (cedula: string, apellido: string) => {
+      const params = new URLSearchParams();
+      if (cedula) params.append('cedula', cedula);
+      if (apellido) params.append('apellido', apellido);
+      return `${API_BASE_URL}/historial/search?${params.toString()}`;
+    },
+    patientHistory: (pacienteId: string) =>
+      `${API_BASE_URL}/historial/patient/${pacienteId}`,
+    appointmentDetail: (citaId: string | number) =>
+      `${API_BASE_URL}/historial/appointment/${citaId}`,
+  },
 };

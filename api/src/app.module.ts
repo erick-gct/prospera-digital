@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { MailModule } from './mail/mail.module';  
+import { MailModule } from './mail/mail.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from './common/common.module';
@@ -9,6 +9,7 @@ import { PatientModule } from './patient/patient.module';
 import { PodologoModule } from './podologo/podologo.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { StorageModule } from './storage/storage.module';
+import { HistorialModule } from './historial/historial.module';
 
 @Module({
   imports: [
@@ -22,8 +23,9 @@ import { StorageModule } from './storage/storage.module';
     MailModule,
     AppointmentModule,
     StorageModule,
+    HistorialModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
