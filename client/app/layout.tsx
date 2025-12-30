@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   title: "Prospera Digital LLC | Consultorio Podológico",
   description: "Sistema de gestión para consultorio podológico",
   icons: {
-    icon: "/assets/logo/logo-pie.ico", 
+    icon: "/assets/logo/logo-pie-pestana.ico", 
     // apple: "/assets/nombre-de-tu-archivo.png", // Opcional: si quieres que también sirva para iPhone/iPad
   },
 };
