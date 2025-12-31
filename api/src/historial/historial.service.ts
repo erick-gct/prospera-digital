@@ -68,9 +68,11 @@ export class HistorialService {
 
   /**
    * Obtener historial de citas de un paciente
+   * @param months - Opcional: filtrar citas de los últimos X meses hacia adelante
+   * @param estadoId - Opcional: filtrar por estado (1=Reservada, 2=Completada)
    */
-  async getPatientHistory(pacienteId: string) {
-    const { data, error } = await this.supabase
+  async getPatientHistory(pacienteId: string, months?: number, estadoId?: number) {
+    let query = this.supabase
       .from('cita')
       .select(`
         id,
@@ -84,8 +86,21 @@ export class HistorialService {
           nombre
         )
       `)
-      .eq('paciente_id', pacienteId)
-      .order('fecha_hora_inicio', { ascending: false });
+      .eq('paciente_id', pacienteId);
+
+    // Filtrar por fecha si se especifica months
+    if (months && months > 0) {
+      const fechaLimite = new Date();
+      fechaLimite.setMonth(fechaLimite.getMonth() - months);
+      query = query.gte('fecha_hora_inicio', fechaLimite.toISOString());
+    }
+
+    // Filtrar por estado si se especifica
+    if (estadoId && [1, 2, 3].includes(estadoId)) {
+      query = query.eq('estado_id', estadoId);
+    }
+
+    const { data, error } = await query.order('fecha_hora_inicio', { ascending: false });
 
     if (error) {
       throw new InternalServerErrorException(`Error obteniendo historial: ${error.message}`);

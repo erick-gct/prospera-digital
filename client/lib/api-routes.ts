@@ -73,4 +73,17 @@ export const ApiRoutes = {
     appointmentDetail: (citaId: string | number) =>
       `${API_BASE_URL}/historial/appointment/${citaId}`,
   },
+
+  // Mis Citas (para el paciente logueado)
+  misCitas: {
+    myHistory: (userId: string, months?: string, estado?: string) => {
+      const params = new URLSearchParams();
+      if (months && months !== 'all') params.append('months', months);
+      if (estado && estado !== 'all') params.append('estado', estado);
+      const queryString = params.toString();
+      return `${API_BASE_URL}/historial/patient/${userId}${queryString ? `?${queryString}` : ''}`;
+    },
+    detail: (citaId: string | number) =>
+      `${API_BASE_URL}/historial/appointment/${citaId}`,
+  },
 };

@@ -14,8 +14,16 @@ export class HistorialController {
   }
 
   @Get('patient/:id')
-  getPatientHistory(@Param('id') id: string) {
-    return this.historialService.getPatientHistory(id);
+  getPatientHistory(
+    @Param('id') id: string,
+    @Query('months') months?: string,
+    @Query('estado') estado?: string,
+  ) {
+    return this.historialService.getPatientHistory(
+      id,
+      months ? parseInt(months, 10) : undefined,
+      estado ? parseInt(estado, 10) : undefined
+    );
   }
 
   @Get('appointment/:id')

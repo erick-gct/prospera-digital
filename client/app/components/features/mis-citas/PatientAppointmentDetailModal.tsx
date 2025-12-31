@@ -8,12 +8,13 @@ import {
   Pill, 
   Footprints, 
   ClipboardList, 
-  Upload, 
+  FileImage, 
   Calendar, 
   Loader2, 
-  ExternalLink,
-  User,
-  FileText
+  FileText,
+  ChevronDown,
+  Image as ImageIcon,
+  FileIcon
 } from "lucide-react"
 import { 
   Dialog, 
@@ -24,10 +25,15 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { ApiRoutes } from "@/lib/api-routes"
 
-interface HistorialDetailModalProps {
+interface PatientAppointmentDetailModalProps {
   citaId: number | null
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -89,7 +95,7 @@ interface AppointmentFullDetail {
   }[]
 }
 
-export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDetailModalProps) {
+export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: PatientAppointmentDetailModalProps) {
   const [detail, setDetail] = useState<AppointmentFullDetail | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -98,7 +104,7 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
 
     setIsLoading(true)
     try {
-      const response = await fetch(ApiRoutes.historial.appointmentDetail(citaId))
+      const response = await fetch(ApiRoutes.misCitas.detail(citaId))
       if (response.ok) {
         const data = await response.json()
         setDetail(data)
@@ -127,13 +133,26 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
     ? parseISO(detail.cita.fecha_hora_inicio) 
     : new Date()
 
+  // Función para determinar si es imagen
+  const isImage = (tipo: string) => tipo.startsWith('image/')
+
+  // Función para obtener icono según tipo de archivo
+  const getFileIcon = (tipo: string) => {
+    if (isImage(tipo)) return <ImageIcon className="h-4 w-4 text-blue-500" />
+    if (tipo.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />
+    return <FileIcon className="h-4 w-4 text-gray-500" />
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            Detalle de Cita
+          <DialogTitle className="flex items-center gap-2 text-primary">
+            <FileText className="h-5 w-5" />
+            Detalle de Mi Cita
           </DialogTitle>
           {detail?.cita && (
             <DialogDescription asChild>
@@ -177,7 +196,7 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
                 <span className="hidden sm:inline">Evaluación</span>
               </TabsTrigger>
               <TabsTrigger value="documentos" className="gap-1 text-xs">
-                <Upload className="h-3 w-3" />
+                <FileImage className="h-3 w-3" />
                 <span className="hidden sm:inline">Docs</span>
                 {detail.documentos.length > 0 && (
                   <Badge variant="secondary" className="h-4 w-4 p-0 text-[10px]">
@@ -197,13 +216,13 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
               )}
               {detail.cita.observaciones_paciente && (
                 <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Observaciones del paciente</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Tus observaciones</h4>
                   <p className="bg-amber-50 p-3 rounded-lg text-sm">{detail.cita.observaciones_paciente}</p>
                 </div>
               )}
               {detail.cita.observaciones_podologo && (
                 <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Diagnóstico y observaciones</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Diagnóstico del especialista</h4>
                   <p className="bg-green-50 p-3 rounded-lg text-sm whitespace-pre-wrap">{detail.cita.observaciones_podologo}</p>
                 </div>
               )}
@@ -214,7 +233,7 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
                 </div>
               )}
               {!detail.cita.observaciones_podologo && !detail.cita.procedimientos_realizados && (
-                <p className="text-center text-muted-foreground py-8">No hay información de tratamiento registrada</p>
+                <p className="text-center text-muted-foreground py-8">No hay información de tratamiento registrada aún</p>
               )}
             </TabsContent>
 
@@ -282,7 +301,7 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
                   )}
                   {detail.ortesis.fecha_entrega_paciente && (
                     <div className="bg-muted/50 p-3 rounded-lg">
-                      <p className="text-xs text-muted-foreground">Fecha entrega al paciente</p>
+                      <p className="text-xs text-muted-foreground">Fecha entrega</p>
                       <p className="font-medium">{format(parseISO(detail.ortesis.fecha_entrega_paciente), "d MMM yyyy", { locale: es })}</p>
                     </div>
                   )}
@@ -342,34 +361,62 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
               )}
             </TabsContent>
 
-            {/* Tab: Documentos */}
+            {/* Tab: Documentos - Con visualización inline en acordeón */}
             <TabsContent value="documentos" className="space-y-4 pt-4">
               {detail.documentos.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No hay documentos adjuntos</p>
               ) : (
-                <div className="space-y-2">
+                <Accordion type="single" collapsible className="w-full">
                   {detail.documentos.map((doc) => (
-                    <div 
-                      key={doc.id} 
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Upload className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-sm">{doc.nombre_archivo}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(parseISO(doc.fecha_subida), "d MMM yyyy, HH:mm", { locale: es })}
-                          </p>
+                    <AccordionItem key={doc.id} value={`doc-${doc.id}`}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center gap-3">
+                          {getFileIcon(doc.tipo_archivo)}
+                          <div className="text-left">
+                            <p className="font-medium text-sm">{doc.nombre_archivo}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(parseISO(doc.fecha_subida), "d MMM yyyy, HH:mm", { locale: es })}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={doc.url_almacenamiento} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="p-2">
+                          {isImage(doc.tipo_archivo) ? (
+                            <div className="flex justify-center bg-gray-100 rounded-lg p-4">
+                              <img 
+                                src={doc.url_almacenamiento} 
+                                alt={doc.nombre_archivo}
+                                className="max-w-full max-h-[400px] object-contain rounded"
+                              />
+                            </div>
+                          ) : doc.tipo_archivo.includes('pdf') ? (
+                            <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '400px' }}>
+                              <iframe
+                                src={doc.url_almacenamiento}
+                                className="w-full h-full"
+                                title={doc.nombre_archivo}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-8 bg-gray-100 rounded-lg">
+                              <FileIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                              <p className="text-sm text-muted-foreground">Vista previa no disponible</p>
+                              <a 
+                                href={doc.url_almacenamiento} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary text-sm mt-2 underline"
+                              >
+                                Descargar archivo
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   ))}
-                </div>
+                </Accordion>
               )}
             </TabsContent>
           </Tabs>
