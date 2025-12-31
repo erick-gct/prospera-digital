@@ -14,7 +14,8 @@ import {
   FileText,
   ChevronDown,
   Image as ImageIcon,
-  FileIcon
+  FileIcon,
+  Download
 } from "lucide-react"
 import { 
   Dialog, 
@@ -264,6 +265,17 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                         </div>
                       ))}
                     </div>
+                    {/* Botón Descargar PDF */}
+                    <div className="flex justify-end pt-2">
+                      <a
+                        href={ApiRoutes.recetas.downloadPdf(receta.id)}
+                        download={`receta-${receta.id}.pdf`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm"
+                      >
+                        <Download className="h-4 w-4" />
+                        Descargar PDF
+                      </a>
+                    </div>
                   </div>
                 ))
               )}
@@ -381,7 +393,7 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="p-2">
+                        <div className="p-2 space-y-3">
                           {isImage(doc.tipo_archivo) ? (
                             <div className="flex justify-center bg-gray-100 rounded-lg p-4">
                               <img 
@@ -402,16 +414,21 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                             <div className="flex flex-col items-center justify-center py-8 bg-gray-100 rounded-lg">
                               <FileIcon className="h-12 w-12 text-muted-foreground mb-2" />
                               <p className="text-sm text-muted-foreground">Vista previa no disponible</p>
-                              <a 
-                                href={doc.url_almacenamiento} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-primary text-sm mt-2 underline"
-                              >
-                                Descargar archivo
-                              </a>
                             </div>
                           )}
+                          {/* Botón Descargar */}
+                          <div className="flex justify-center">
+                            <a 
+                              href={doc.url_almacenamiento} 
+                              download={doc.nombre_archivo}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm"
+                            >
+                              <Download className="h-4 w-4" />
+                              Descargar archivo
+                            </a>
+                          </div>
                         </div>
                       </AccordionContent>
                     </AccordionItem>

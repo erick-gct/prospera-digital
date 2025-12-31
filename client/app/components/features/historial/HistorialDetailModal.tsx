@@ -13,7 +13,8 @@ import {
   Loader2, 
   ExternalLink,
   User,
-  FileText
+  FileText,
+  Download
 } from "lucide-react"
 import { 
   Dialog, 
@@ -244,6 +245,17 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
                           {med.indicaciones && <p className="text-muted-foreground">Indicaciones: {med.indicaciones}</p>}
                         </div>
                       ))}
+                    </div>
+                    {/* Botón Descargar PDF */}
+                    <div className="flex justify-end pt-2">
+                      <a
+                        href={ApiRoutes.recetas.downloadPdf(receta.id)}
+                        download={`receta-${receta.id}.pdf`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm"
+                      >
+                        <Download className="h-4 w-4" />
+                        Descargar PDF
+                      </a>
                     </div>
                   </div>
                 ))

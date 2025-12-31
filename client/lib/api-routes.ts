@@ -86,4 +86,15 @@ export const ApiRoutes = {
     detail: (citaId: string | number) =>
       `${API_BASE_URL}/historial/appointment/${citaId}`,
   },
+
+  // Recetas
+  recetas: {
+    downloadPdf: (recetaId: string | number) =>
+      `${API_BASE_URL}/recetas/${recetaId}/pdf`,
+  },
+
+  // Dashboard
+  dashboard: {
+    patient: (userId: string) => `${API_BASE_URL}/dashboard/patient/${userId}`,
+  },
 };

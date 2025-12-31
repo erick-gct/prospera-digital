@@ -215,11 +215,12 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                     <Button
                       onClick={() => onSelectCita(cita)}
                       className="gap-2 w-full"
-                      variant="default"
-                      disabled={isUpdating}
+                      variant={estadoId === 3 ? "outline" : "default"}
+                      disabled={isUpdating || estadoId === 3}
+                      title={estadoId === 3 ? "No se puede acceder a citas canceladas" : "Acceder a la cita"}
                     >
                       <ClipboardEdit className="h-4 w-4" />
-                      Acceder a la Cita
+                      {estadoId === 3 ? "No disponible" : "Acceder a la Cita"}
                     </Button>
 
                     {/* Fila 2: Acciones secundarias */}

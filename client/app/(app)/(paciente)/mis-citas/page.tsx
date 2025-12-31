@@ -240,9 +240,11 @@ export default function MisCitasPage() {
                             size="sm" 
                             onClick={() => handleViewDetail(cita.id)}
                             className="gap-2"
+                            disabled={cita.estado_id === 3}
+                            title={cita.estado_id === 3 ? "No se puede acceder a citas canceladas" : "Ver detalle de la cita"}
                           >
                             <Eye className="h-4 w-4" />
-                            Ver detalle
+                            {cita.estado_id === 3 ? "No disponible" : "Ver detalle"}
                           </Button>
                         </div>
                       </div>

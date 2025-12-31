@@ -10,6 +10,8 @@ import { PodologoModule } from './podologo/podologo.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { StorageModule } from './storage/storage.module';
 import { HistorialModule } from './historial/historial.module';
+import { RecetaModule } from './receta/receta.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { HistorialModule } from './historial/historial.module';
     AppointmentModule,
     StorageModule,
     HistorialModule,
+    RecetaModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
