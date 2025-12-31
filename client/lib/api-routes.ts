@@ -96,5 +96,12 @@ export const ApiRoutes = {
   // Dashboard
   dashboard: {
     patient: (userId: string) => `${API_BASE_URL}/dashboard/patient/${userId}`,
+    podologo: (userId: string, month?: number, year?: number) => {
+      const params = new URLSearchParams();
+      if (month) params.append('month', month.toString());
+      if (year) params.append('year', year.toString());
+      const queryString = params.toString();
+      return `${API_BASE_URL}/dashboard/podologo/${userId}${queryString ? `?${queryString}` : ''}`;
+    },
   },
 };

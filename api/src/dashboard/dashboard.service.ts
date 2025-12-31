@@ -182,4 +182,198 @@ export class DashboardService {
       ultimaEvaluacion,
     };
   }
+
+  /**
+   * Obtener estadísticas del dashboard para un podólogo
+   */
+  async getPodologoDashboard(userId: string, month?: number, year?: number) {
+    // Usar mes/año actual si no se especifica
+    const now = new Date();
+    const targetMonth = month ?? now.getMonth() + 1;
+    const targetYear = year ?? now.getFullYear();
+
+    // Calcular inicio y fin del mes
+    const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
+    const endOfMonth = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+
+    // 1. Datos del podólogo
+    const { data: podologo } = await this.supabase
+      .from('podologo')
+      .select('nombres, apellidos')
+      .eq('usuario_id', userId)
+      .single();
+
+    // 2. Estadísticas de citas del mes
+    const { count: totalCitas } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('podologo_id', userId)
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    const { count: completadas } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('podologo_id', userId)
+      .eq('estado_id', 2)
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    const { count: reservadas } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('podologo_id', userId)
+      .eq('estado_id', 1)
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    const { count: canceladas } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('podologo_id', userId)
+      .eq('estado_id', 3)
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    // 3. Pacientes activos e inactivos (de todos los tiempos)
+    const { count: pacientesActivos } = await this.supabase
+      .from('paciente')
+      .select('usuario_id', { count: 'exact', head: true })
+      .eq('estado_paciente_id', 1); // Activo
+
+    const { count: pacientesInactivos } = await this.supabase
+      .from('paciente')
+      .select('usuario_id', { count: 'exact', head: true })
+      .eq('estado_paciente_id', 2); // Inactivo
+
+    const { count: pacientesTotal } = await this.supabase
+      .from('paciente')
+      .select('usuario_id', { count: 'exact', head: true });
+
+    // 4. Documentos y recetas del mes
+    // Primero obtener IDs de citas del mes
+    const { data: citasDelMes } = await this.supabase
+      .from('cita')
+      .select('id')
+      .eq('podologo_id', userId)
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    const citaIdsMes = (citasDelMes || []).map(c => c.id);
+
+    let documentosMes = 0;
+    let recetasMes = 0;
+    if (citaIdsMes.length > 0) {
+      const { count: docsCount } = await this.supabase
+        .from('documentos_clinicos')
+        .select('id', { count: 'exact', head: true })
+        .in('cita_id', citaIdsMes);
+      documentosMes = docsCount || 0;
+
+      const { count: recetasCount } = await this.supabase
+        .from('receta')
+        .select('id', { count: 'exact', head: true })
+        .in('cita_id', citaIdsMes);
+      recetasMes = recetasCount || 0;
+    }
+
+    // 5. Última cita modificada (global, no solo del mes)
+    const { data: ultimaCitaModificada } = await this.supabase
+      .from('cita')
+      .select(`
+        id,
+        fecha_hora_inicio,
+        fecha_modificacion,
+        motivo_cita,
+        paciente_id,
+        estado_cita (nombre)
+      `)
+      .eq('podologo_id', userId)
+      .order('fecha_modificacion', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Obtener nombre del paciente de la última cita modificada
+    let ultimaCitaPaciente: string | null = null;
+    if (ultimaCitaModificada?.paciente_id) {
+      const { data: paciente } = await this.supabase
+        .from('paciente')
+        .select('nombres, apellidos')
+        .eq('usuario_id', ultimaCitaModificada.paciente_id)
+        .single();
+      if (paciente) {
+        ultimaCitaPaciente = `${paciente.nombres} ${paciente.apellidos}`;
+      }
+    }
+
+    // 5. Último paciente atendido (última cita completada)
+    const { data: ultimaCitaCompletada } = await this.supabase
+      .from('cita')
+      .select('paciente_id, fecha_hora_inicio')
+      .eq('podologo_id', userId)
+      .eq('estado_id', 2) // Completada
+      .order('fecha_hora_inicio', { ascending: false })
+      .limit(1)
+      .single();
+
+    let ultimoPacienteAtendido: { nombre: string; fecha: string } | null = null;
+    if (ultimaCitaCompletada?.paciente_id) {
+      const { data: paciente } = await this.supabase
+        .from('paciente')
+        .select('nombres, apellidos')
+        .eq('usuario_id', ultimaCitaCompletada.paciente_id)
+        .single();
+      if (paciente) {
+        ultimoPacienteAtendido = {
+          nombre: `${paciente.nombres} ${paciente.apellidos}`,
+          fecha: ultimaCitaCompletada.fecha_hora_inicio,
+        };
+      }
+    }
+
+    // 6. Citas de hoy
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const { count: citasHoy } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('podologo_id', userId)
+      .gte('fecha_hora_inicio', todayStart.toISOString())
+      .lte('fecha_hora_inicio', todayEnd.toISOString())
+      .in('estado_id', [1, 2]); // Reservada o Completada
+
+    return {
+      podologo: podologo ? {
+        nombres: podologo.nombres,
+        apellidos: podologo.apellidos,
+      } : null,
+      mesSeleccionado: {
+        month: targetMonth,
+        year: targetYear,
+      },
+      estadisticas: {
+        totalCitas: totalCitas || 0,
+        completadas: completadas || 0,
+        reservadas: reservadas || 0,
+        canceladas: canceladas || 0,
+      },
+      pacientes: {
+        total: pacientesTotal || 0,
+        activos: pacientesActivos || 0,
+        inactivos: pacientesInactivos || 0,
+      },
+      documentosMes,
+      recetasMes,
+      citasHoy: citasHoy || 0,
+      ultimaCitaModificada: ultimaCitaModificada ? {
+        ...ultimaCitaModificada,
+        paciente_nombre: ultimaCitaPaciente,
+      } : null,
+      ultimoPacienteAtendido,
+    };
+  }
 }
+
