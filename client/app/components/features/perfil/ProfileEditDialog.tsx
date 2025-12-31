@@ -44,7 +44,8 @@ import {
   CalendarIcon,
   User,
   MapPin,
-  Activity
+  Activity,
+  Lock
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -52,6 +53,7 @@ import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { Paciente, Podologo } from "@/types"
 import { ApiRoutes } from "@/lib/api-routes"
+import { PasswordChangeDialog } from "./PasswordChangeDialog"
 
 interface ProfileEditDialogProps {
   isOpen: boolean
@@ -64,6 +66,7 @@ interface ProfileEditDialogProps {
 export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: ProfileEditDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showPasswordChange, setShowPasswordChange] = useState(false)
   const isPaciente = role === "PACIENTE"
 
   // Catálogos
@@ -362,9 +365,16 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
 
         <DialogFooter className="px-6 py-3 border-t bg-gray-50">
           <div className="flex w-full justify-between items-center">
-             <p className="text-[10px] text-muted-foreground">
-               * Campos sensibles bloqueados.
-             </p>
+             <Button 
+               type="button" 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setShowPasswordChange(true)}
+               className="gap-2"
+             >
+               <Lock className="h-3 w-3" />
+               Cambiar Contraseña
+             </Button>
              <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isLoading}>Cancelar</Button>
                 <Button type="submit" form="edit-profile-form" size="sm" disabled={isLoading} className="gap-2">
@@ -395,6 +405,12 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+    {/* Modal de cambio de contraseña */}
+    <PasswordChangeDialog 
+      isOpen={showPasswordChange} 
+      onClose={() => setShowPasswordChange(false)} 
+    />
     </>
   )
 }

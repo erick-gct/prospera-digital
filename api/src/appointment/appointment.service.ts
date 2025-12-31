@@ -75,17 +75,28 @@ export class AppointmentService {
       .eq('usuario_id', createAppointmentDto.userId)
       .single();
 
+    // Buscamos el nombre del podólogo
+    const { data: podologo } = await this.supabase
+      .from('podologo')
+      .select('nombres, apellidos')
+      .eq('usuario_id', podologoId)
+      .single();
+
     if (paciente && paciente.email) {
       const fechaFormateada = fechaCita.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const horaFormateada = fechaCita.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      const nombreCompleto = `${paciente.nombres} ${paciente.apellidos}`;
+      const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
+      const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
 
       // Enviar correo de confirmación
       await this.mailService.sendAppointmentConfirmation(
         paciente.email,
-        nombreCompleto,
+        nombrePaciente,
         fechaFormateada,
-        horaFormateada
+        horaFormateada,
+        nombrePodologo,
+        nuevaCita.id,
+        createAppointmentDto.userId
       );
     }
 
@@ -436,10 +447,10 @@ export class AppointmentService {
       throw new BadRequestException('Estado no válido');
     }
 
-    // Verificar que la cita existe
+    // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id')
+      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio')
       .eq('id', citaId)
       .single();
 
@@ -467,6 +478,42 @@ export class AppointmentService {
       .eq('id', estadoId)
       .single();
 
+    // Si el estado es "Cancelada" (3), enviar email de cancelación
+    if (estadoId === 3) {
+      // Obtener datos del paciente
+      const { data: paciente } = await this.supabase
+        .from('paciente')
+        .select('nombres, apellidos, email')
+        .eq('usuario_id', cita.paciente_id)
+        .single();
+
+      // Obtener datos del podólogo
+      const { data: podologo } = await this.supabase
+        .from('podologo')
+        .select('nombres, apellidos')
+        .eq('usuario_id', cita.podologo_id)
+        .single();
+
+      if (paciente && paciente.email) {
+        const fechaCita = new Date(cita.fecha_hora_inicio);
+        const fechaFormateada = fechaCita.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const horaFormateada = fechaCita.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
+        const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
+
+        await this.mailService.sendAppointmentCancellation(
+          paciente.email,
+          nombrePaciente,
+          fechaFormateada,
+          horaFormateada,
+          nombrePodologo,
+          null, // Sin motivo específico por ahora
+          citaId,
+          cita.paciente_id
+        );
+      }
+    }
+
     return {
       message: 'Estado actualizado correctamente',
       nuevo_estado: estado?.nombre || 'Desconocido'
@@ -477,10 +524,10 @@ export class AppointmentService {
    * Reagendar una cita (cambiar fecha y hora)
    */
   async reschedule(citaId: number, nuevaFechaHora: string) {
-    // Verificar que la cita existe
+    // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id, paciente_id')
+      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio')
       .eq('id', citaId)
       .single();
 
@@ -493,6 +540,9 @@ export class AppointmentService {
       throw new BadRequestException('Solo se pueden reagendar citas en estado Reservada');
     }
 
+    // Guardar fecha anterior para el email
+    const fechaAnterior = new Date(cita.fecha_hora_inicio);
+
     // Actualizar la fecha y hora
     const { error: updateError } = await this.supabase
       .from('cita')
@@ -503,7 +553,46 @@ export class AppointmentService {
       .eq('id', citaId);
 
     if (updateError) {
+      // Detectar error de unique constraint (doble booking)
+      if (updateError.code === '23505') {
+        throw new BadRequestException('Ya existe una cita reservada para esa fecha y hora. Por favor, selecciona otro horario.');
+      }
       throw new InternalServerErrorException(`Error reagendando cita: ${updateError.message}`);
+    }
+
+    // Enviar email de reagendamiento
+    const { data: paciente } = await this.supabase
+      .from('paciente')
+      .select('nombres, apellidos, email')
+      .eq('usuario_id', cita.paciente_id)
+      .single();
+
+    const { data: podologo } = await this.supabase
+      .from('podologo')
+      .select('nombres, apellidos')
+      .eq('usuario_id', cita.podologo_id)
+      .single();
+
+    if (paciente && paciente.email) {
+      const fechaNueva = new Date(nuevaFechaHora);
+      const fechaAnteriorFormateada = fechaAnterior.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const horaAnteriorFormateada = fechaAnterior.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const horaNuevaFormateada = fechaNueva.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
+      const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
+
+      await this.mailService.sendAppointmentReschedule(
+        paciente.email,
+        nombrePaciente,
+        fechaAnteriorFormateada,
+        horaAnteriorFormateada,
+        fechaNuevaFormateada,
+        horaNuevaFormateada,
+        nombrePodologo,
+        citaId,
+        cita.paciente_id
+      );
     }
 
     return {

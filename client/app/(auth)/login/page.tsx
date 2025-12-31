@@ -136,9 +136,26 @@ export default function LoginPage() {
         </CardContent>
 
         <CardFooter className="flex flex-col gap-4 py-6">
-          <Button type="submit" className="w-full">
-            Iniciar Sesión
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Iniciando sesión...
+              </>
+            ) : (
+              "Iniciar Sesión"
+            )}
           </Button>
+
+          <div className="text-center text-xs text-muted-foreground py-2">
+            ¿Olvidaste tu contraseña?{" "}
+            <Link
+              href="/register"
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Da click aqui
+            </Link>
+          </div>
 
           <div className="text-center text-sm text-muted-foreground">
             ¿No tienes una cuenta?{" "}
