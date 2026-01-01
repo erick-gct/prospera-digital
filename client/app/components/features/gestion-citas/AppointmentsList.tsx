@@ -225,23 +225,7 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
 
                     {/* Fila 2: Acciones secundarias */}
                     <div className="flex items-center gap-2">
-                      {/* Botón de reagendar (solo si está reservada) */}
-                      {estadoId === 1 && (
-         
-                          <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 h-8 text-xs flex-1"
-                          onClick={() => setRescheduleModal({ open: true, cita })}
-                          disabled={isUpdating}
-                          title="Reagendar cita"
-                        >
-                          <CalendarClock className="h-4 w-4" />
-                          <span className="hidden sm:inline">Reagendar</span>
-                        </Button>
-                    
-                          
-                      )}
+
 
                       {/* Select de estado */}
                       {estadoId !== 3 && (
@@ -268,6 +252,24 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                             </SelectContent>
                           </Select>
                         </div>
+                      )}
+
+                                            {/* Botón de reagendar (solo si está reservada) */}
+                      {estadoId === 1 && (
+         
+                          <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 h-8 text-xs flex-1"
+                          onClick={() => setRescheduleModal({ open: true, cita })}
+                          disabled={isUpdating}
+                          title="Reagendar cita"
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                          <span className="hidden sm:inline">Reagendar</span>
+                        </Button>
+                    
+                          
                       )}
 
                       {/* Botón cancelar */}

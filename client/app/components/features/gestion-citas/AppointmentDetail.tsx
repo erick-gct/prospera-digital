@@ -18,7 +18,8 @@ import {
   IdCard,
   Save,
   Plus,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -74,7 +75,9 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
   const [recetasGuardadas, setRecetasGuardadas] = useState<RecetaGuardada[]>([])
   const [activeTab, setActiveTab] = useState("observaciones")
   const [isSaving, setIsSaving] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [citaEstado, setCitaEstado] = useState(cita.estado_id)
 
   // Ref para documentos
   const documentosRef = useRef<DocumentosSectionRef>(null)
@@ -103,9 +106,9 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
   })
 
   const citaTime = parseISO(cita.fecha_hora_inicio)
-  const estadoId = typeof cita.estado_id === 'string' ? parseInt(cita.estado_id, 10) : cita.estado_id
-  const colors = estadoColors[estadoId] || estadoColors[1]
-  const isEditable = estadoId !== 2 // No editable si está completada
+  const estadoIdActual = typeof citaEstado === 'string' ? parseInt(String(citaEstado), 10) : citaEstado
+  const colors = estadoColors[estadoIdActual] || estadoColors[1]
+  const isEditable = estadoIdActual !== 2 // No editable si está completada
 
   // Calcular edad del paciente
   const edad = cita.paciente?.fecha_nacimiento 
@@ -263,6 +266,31 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
     }
   }
 
+  // Cerrar/completar la cita
+  const handleCerrarCita = async () => {
+    setIsClosing(true)
+    try {
+      const response = await fetch(ApiRoutes.citas.updateStatus(cita.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estadoId: 2 }), // 2 = Completada
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al cerrar la cita')
+      }
+
+      toast.success('Cita cerrada exitosamente')
+      setCitaEstado(2)
+      await loadDetail()
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al cerrar la cita')
+    } finally {
+      setIsClosing(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -285,29 +313,63 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
             {cita.estado_cita?.nombre || "Pendiente"}
           </Badge>
           {isEditable ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button className="gap-2" disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  {isSaving ? "Guardando..." : "Guardar Todo"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Confirmar guardado?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se guardarán todos los datos ingresados: diagnóstico, tratamientos, recetas, ortesis y evaluación del pie.
-                    Esta acción actualizará la información de la cita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSaveAll}>
-                    Confirmar y Guardar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1 text-green-600 border-green-600 hover:bg-green-50"
+                    disabled={isSaving || isClosing}
+                  >
+                    {isClosing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    Cerrar Cita
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Cerrar esta cita?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Al cerrar la cita, su estado cambiará a "Completada" y ya no podrás editarla.
+                      Asegúrate de haber guardado toda la información antes de continuar.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleCerrarCita}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Sí, cerrar cita
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button className="gap-2" disabled={isSaving || isClosing}>
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {isSaving ? "Guardando..." : "Guardar Todo"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Confirmar guardado?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se guardarán todos los datos ingresados: diagnóstico, tratamientos, recetas, ortesis y evaluación del pie.
+                      Esta acción actualizará la información de la cita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSaveAll}>
+                      Confirmar y Guardar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           ) : (
             <Badge variant="secondary">Solo lectura</Badge>
           )}

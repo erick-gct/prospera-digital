@@ -60,6 +60,13 @@ interface DashboardData {
   documentosMes: number
   recetasMes: number
   citasHoy: number
+  citasHoyDetalles: {
+    id: number
+    hora: string
+    paciente: string
+    motivo: string | null
+    estadoId: number
+  }[]
   ultimaCitaModificada: {
     id: number
     fecha_hora_inicio: string
@@ -411,6 +418,51 @@ export function DashboardPodologo() {
                 <p className="text-xs text-muted-foreground">Inactivos</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Citas de Hoy */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Calendar className="h-5 w-5 text-primary" />
+              Citas de Hoy ({data.citasHoy})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.citasHoyDetalles && data.citasHoyDetalles.length > 0 ? (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {data.citasHoyDetalles.map(cita => (
+                  <div 
+                    key={cita.id} 
+                    className={`flex items-center justify-between p-2 rounded-lg text-sm ${
+                      cita.estadoId === 2 ? 'bg-green-50' : 'bg-blue-50'
+                    }`}
+                  >
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="font-medium truncate">{cita.paciente}</span>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {cita.motivo || 'Sin motivo'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-medium ${
+                        cita.estadoId === 2 ? 'text-green-600' : 'text-blue-600'
+                      }`}>
+                        {format(parseISO(cita.hora), "HH:mm")}
+                      </span>
+                      {cita.estadoId === 2 && (
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay citas programadas para hoy
+              </p>
+            )}
           </CardContent>
         </Card>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
 import { 
@@ -15,7 +15,8 @@ import {
   Loader2,
   CalendarPlus,
   History,
-  Footprints
+  Footprints,
+  CalendarX
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,10 +26,22 @@ import {
   ChartTooltip, 
   ChartTooltipContent 
 } from "@/components/ui/chart"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Pie, PieChart, Cell } from "recharts"
 import { ApiRoutes } from "@/lib/api-routes"
 import { createClient } from "@/lib/supabase/cliente"
+import { toast } from "sonner"
 import Link from "next/link"
+import { RescheduleModal } from "../gestion-citas/RescheduleModal"
 
 interface DashboardData {
   paciente: {
@@ -55,6 +68,15 @@ interface DashboardData {
     pieIzquierdo: { tipo: string | null; notas: string | null }
     pieDerecho: { tipo: string | null; notas: string | null }
   } | null
+  ultimaCitaData: {
+    id: number
+    documentos: { id: number; nombre_archivo: string; tipo_archivo: string }[]
+    recetas: { 
+      id: number
+      diagnostico_receta: string | null
+      detalles: { id: number; medicamento: string; dosis: string | null; indicaciones: string | null }[]
+    }[]
+  } | null
 }
 
 const chartConfig = {
@@ -76,6 +98,9 @@ export function DashboardPaciente() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   // Obtener usuario
   useEffect(() => {
@@ -90,26 +115,60 @@ export function DashboardPaciente() {
   }, [])
 
   // Cargar datos del dashboard
-  useEffect(() => {
-    const loadDashboard = async () => {
-      if (!userId) return
+  const loadDashboard = useCallback(async () => {
+    if (!userId) return
 
-      setIsLoading(true)
-      try {
-        const response = await fetch(ApiRoutes.dashboard.patient(userId))
-        if (response.ok) {
-          const dashboardData = await response.json()
-          setData(dashboardData)
-        }
-      } catch (error) {
-        console.error('Error loading dashboard:', error)
-      } finally {
-        setIsLoading(false)
+    setIsLoading(true)
+    try {
+      const response = await fetch(ApiRoutes.dashboard.patient(userId))
+      if (response.ok) {
+        const dashboardData = await response.json()
+        setData(dashboardData)
       }
+    } catch (error) {
+      console.error('Error loading dashboard:', error)
+    } finally {
+      setIsLoading(false)
     }
-
-    loadDashboard()
   }, [userId])
+
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
+
+  // Cancelar cita
+  const handleCancelCita = async () => {
+    if (!data?.proximaCita?.id) return
+
+    setIsUpdating(true)
+    try {
+      const response = await fetch(ApiRoutes.citas.updateStatus(data.proximaCita.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estadoId: 3 }),
+      })
+
+      if (response.ok) {
+        toast.success('Cita cancelada exitosamente')
+        setShowCancelDialog(false)
+        loadDashboard() // Refrescar dashboard
+      } else {
+        toast.error('Error al cancelar la cita')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al cancelar la cita')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  // Callback después de reagendar
+  const handleRescheduleSuccess = () => {
+    setShowRescheduleModal(false)
+    toast.success('Cita reagendada exitosamente')
+    loadDashboard() // Refrescar dashboard
+  }
 
   if (isLoading) {
     return (
@@ -138,6 +197,7 @@ export function DashboardPaciente() {
     : 'Paciente'
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header de bienvenida */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -217,6 +277,30 @@ export function DashboardPaciente() {
                 <p className="text-xs text-center text-muted-foreground">
                   {format(parseISO(data.proximaCita.fecha_hora_inicio), "EEEE", { locale: es })}
                 </p>
+
+                {/* Botones de acción */}
+                <div className="flex gap-2 mt-3 pt-3 border-t">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 gap-1"
+                    onClick={() => setShowRescheduleModal(true)}
+                    disabled={isUpdating}
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    Reagendar
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="flex-1 gap-1"
+                    onClick={() => setShowCancelDialog(true)}
+                    disabled={isUpdating}
+                  >
+                    <CalendarX className="h-4 w-4" />
+                    Cancelar
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="text-center py-8">
@@ -351,47 +435,115 @@ export function DashboardPaciente() {
         </Card>
       </div>
 
-      {/* Documentos y Recetas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-xl bg-purple-100 flex items-center justify-center">
-                <FileText className="h-7 w-7 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-4xl font-bold text-purple-600">{data.documentos}</p>
-                <p className="text-sm text-muted-foreground">Documentos clínicos</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Sección de Stats Totales y Últimos Docs/Recetas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Izquierda: Stats Totales */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-2">Totales Históricos</h3>
+          <div className="grid grid-cols-3 gap-3">
+            <Card>
+              <CardContent className="pt-4 pb-4 text-center">
+                <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center mx-auto mb-2">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                </div>
+                <p className="text-2xl font-bold text-purple-600">{data.documentos}</p>
+                <p className="text-xs text-muted-foreground">Documentos</p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-xl bg-orange-100 flex items-center justify-center">
-                <Pill className="h-7 w-7 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-4xl font-bold text-orange-600">{data.recetas}</p>
-                <p className="text-sm text-muted-foreground">Recetas emitidas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="pt-4 pb-4 text-center">
+                <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center mx-auto mb-2">
+                  <Pill className="h-5 w-5 text-orange-600" />
+                </div>
+                <p className="text-2xl font-bold text-orange-600">{data.recetas}</p>
+                <p className="text-xs text-muted-foreground">Recetas</p>
+              </CardContent>
+            </Card>
 
+            <Card>
+              <CardContent className="pt-4 pb-4 text-center">
+                <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center mx-auto mb-2">
+                  <Footprints className="h-5 w-5 text-teal-600" />
+                </div>
+                <p className="text-2xl font-bold text-teal-600">{data.ortesis}</p>
+                <p className="text-xs text-muted-foreground">Órtesis</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Derecha: Últimos Docs y Recetas de última cita */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-xl bg-teal-100 flex items-center justify-center">
-                <Footprints className="h-7 w-7 text-teal-600" />
-              </div>
-              <div>
-                <p className="text-4xl font-bold text-teal-600">{data.ortesis}</p>
-                <p className="text-sm text-muted-foreground">Órtesis generadas</p>
-              </div>
-            </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Última Actualización
+            </CardTitle>
+            <CardDescription>Documentos y recetas de tu última cita</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {data.ultimaCitaData ? (
+              <>
+                {data.ultimaCitaData.documentos.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Documentos Clínicos</p>
+                    <div className="space-y-1">
+                      {data.ultimaCitaData.documentos.map(doc => (
+                        <div key={doc.id} className="flex items-center gap-2 text-sm bg-muted/50 px-2 py-1 rounded">
+                          <FileText className="h-3 w-3 text-purple-500" />
+                          <span className="truncate">{doc.nombre_archivo}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sin documentos en última cita</p>
+                )}
+
+                {data.ultimaCitaData.recetas.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Recetas</p>
+                    <div className="space-y-3">
+                      {data.ultimaCitaData.recetas.map((receta, index) => (
+                        <div key={receta.id} className="bg-orange-50 px-3 py-2 rounded">
+                          <p className="font-medium text-sm text-orange-700 mb-1">
+                            Receta {index + 1}
+                            {receta.diagnostico_receta && (
+                              <span className="font-normal text-xs text-muted-foreground ml-2">
+                                - {receta.diagnostico_receta}
+                              </span>
+                            )}
+                          </p>
+                          {receta.detalles.length > 0 ? (
+                            <div className="space-y-1 ml-2">
+                              {receta.detalles.map(det => (
+                                <div key={det.id} className="flex items-start gap-2 text-sm">
+                                  <Pill className="h-3 w-3 text-orange-500 flex-shrink-0 mt-0.5" />
+                                  <div>
+                                    <span className="font-medium">{det.medicamento}</span>
+                                    {det.dosis && <span className="text-muted-foreground"> - {det.dosis}</span>}
+                                    {det.indicaciones && (
+                                      <p className="text-xs text-muted-foreground">{det.indicaciones}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground ml-2">Sin medicamentos</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sin recetas en última cita</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No hay datos de última cita</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -450,6 +602,48 @@ export function DashboardPaciente() {
         </Card>
       )}
     </div>
+
+      {/* Modal de reagendar */}
+      {data?.proximaCita && (
+        <RescheduleModal
+          open={showRescheduleModal}
+          onOpenChange={setShowRescheduleModal}
+          citaId={String(data.proximaCita.id)}
+          nombrePaciente={data.paciente ? `${data.paciente.nombres} ${data.paciente.apellidos}` : "Paciente"}
+          fechaActual={parseISO(data.proximaCita.fecha_hora_inicio)}
+          onSuccess={handleRescheduleSuccess}
+        />
+      )}
+
+      {/* Dialog de confirmación de cancelación */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar esta cita?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede revertir. La cita será marcada como cancelada y no podrás acceder a su contenido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUpdating}>No, mantener cita</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelCita}
+              disabled={isUpdating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Cancelando...
+                </>
+              ) : (
+                'Sí, cancelar cita'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

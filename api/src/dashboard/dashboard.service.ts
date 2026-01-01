@@ -154,7 +154,47 @@ export class DashboardService {
       }
     }
 
-    // 8. Datos del paciente
+    // 8. Documentos y recetas de la última cita modificada
+    let ultimosDocs: { id: number; nombre_archivo: string; tipo_archivo: string }[] = [];
+    let recetasAgrupadas: {
+      id: number;
+      diagnostico_receta: string | null;
+      detalles: { id: number; medicamento: string; dosis: string | null; indicaciones: string | null }[]
+    }[] = [];
+
+    if (ultimaCita) {
+      const { data: docs } = await this.supabase
+        .from('documentos_clinicos')
+        .select('id, nombre_archivo, tipo_archivo')
+        .eq('cita_id', ultimaCita.id)
+        .order('fecha_subida', { ascending: false })
+        .limit(5);
+
+      ultimosDocs = docs || [];
+
+      // Obtener recetas de la cita con sus detalles
+      const { data: recetas } = await this.supabase
+        .from('receta')
+        .select('id, diagnostico_receta')
+        .eq('cita_id', ultimaCita.id);
+
+      if (recetas && recetas.length > 0) {
+        for (const receta of recetas) {
+          const { data: detalles } = await this.supabase
+            .from('detalles_receta')
+            .select('id, medicamento, dosis, indicaciones')
+            .eq('receta_id', receta.id);
+
+          recetasAgrupadas.push({
+            id: receta.id,
+            diagnostico_receta: receta.diagnostico_receta,
+            detalles: detalles || [],
+          });
+        }
+      }
+    }
+
+    // 9. Datos del paciente
     const { data: paciente } = await this.supabase
       .from('paciente')
       .select('nombres, apellidos')
@@ -180,6 +220,11 @@ export class DashboardService {
       recetas: recetasCount,
       ortesis: ortesisCount,
       ultimaEvaluacion,
+      ultimaCitaData: ultimaCita ? {
+        id: ultimaCita.id,
+        documentos: ultimosDocs,
+        recetas: recetasAgrupadas,
+      } : null,
     };
   }
 
@@ -331,7 +376,7 @@ export class DashboardService {
       }
     }
 
-    // 6. Citas de hoy
+    // 6. Citas de hoy (count y detalles)
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -344,6 +389,41 @@ export class DashboardService {
       .gte('fecha_hora_inicio', todayStart.toISOString())
       .lte('fecha_hora_inicio', todayEnd.toISOString())
       .in('estado_id', [1, 2]); // Reservada o Completada
+
+    // Detalles de citas de hoy
+    const { data: citasHoyData } = await this.supabase
+      .from('cita')
+      .select('id, fecha_hora_inicio, motivo_cita, paciente_id, estado_id')
+      .eq('podologo_id', userId)
+      .gte('fecha_hora_inicio', todayStart.toISOString())
+      .lte('fecha_hora_inicio', todayEnd.toISOString())
+      .in('estado_id', [1, 2])
+      .order('fecha_hora_inicio', { ascending: true });
+
+    // Obtener nombres de pacientes para citas de hoy
+    const citasHoyDetalles: { id: number; hora: string; paciente: string; motivo: string | null; estadoId: number }[] = [];
+    if (citasHoyData && citasHoyData.length > 0) {
+      for (const cita of citasHoyData) {
+        let nombrePaciente = 'Paciente';
+        if (cita.paciente_id) {
+          const { data: pac } = await this.supabase
+            .from('paciente')
+            .select('nombres, apellidos')
+            .eq('usuario_id', cita.paciente_id)
+            .single();
+          if (pac) {
+            nombrePaciente = `${pac.nombres} ${pac.apellidos}`;
+          }
+        }
+        citasHoyDetalles.push({
+          id: cita.id,
+          hora: cita.fecha_hora_inicio,
+          paciente: nombrePaciente,
+          motivo: cita.motivo_cita,
+          estadoId: cita.estado_id,
+        });
+      }
+    }
 
     return {
       podologo: podologo ? {
@@ -368,6 +448,7 @@ export class DashboardService {
       documentosMes,
       recetasMes,
       citasHoy: citasHoy || 0,
+      citasHoyDetalles,
       ultimaCitaModificada: ultimaCitaModificada ? {
         ...ultimaCitaModificada,
         paciente_nombre: ultimaCitaPaciente,
