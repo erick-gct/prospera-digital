@@ -7,7 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
-import { MailService } from '../mail/mail.service'; // Tu servicio de correo
+import { MailService } from '../mail/mail.service';
+import { logAuditEvent } from '../common/audit-context';
 
 @Injectable()
 export class AppointmentService {
@@ -82,16 +83,26 @@ export class AppointmentService {
       .eq('usuario_id', podologoId)
       .single();
 
+    // 4.1 REGISTRAR AUDITORÍA (con nombre del usuario)
+    const nombrePaciente = paciente ? `${paciente.nombres} ${paciente.apellidos}` : null;
+    await logAuditEvent(this.supabase, {
+      tabla: 'cita',
+      registroId: nuevaCita.id,
+      accion: 'INSERT',
+      usuarioId: createAppointmentDto.userId,
+      usuarioNombre: nombrePaciente,
+      datosNuevos: nuevaCita,
+    });
+
     if (paciente && paciente.email) {
       const fechaFormateada = fechaCita.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const horaFormateada = fechaCita.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
       const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
 
       // Enviar correo de confirmación
       await this.mailService.sendAppointmentConfirmation(
         paciente.email,
-        nombrePaciente,
+        nombrePaciente || 'Paciente',
         fechaFormateada,
         horaFormateada,
         nombrePodologo,
@@ -293,7 +304,7 @@ export class AppointmentService {
     // 1. Verificar que la cita existe y no está completada (estado_id != 2)
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id')
+      .select('id, estado_id, podologo_id')
       .eq('id', citaId)
       .single();
 
@@ -304,6 +315,14 @@ export class AppointmentService {
     if (cita.estado_id === 2) {
       throw new BadRequestException('No se puede modificar una cita completada');
     }
+
+    // Obtener nombre del podólogo para auditoría
+    const { data: podologoData } = await this.supabase
+      .from('podologo')
+      .select('nombres, apellidos')
+      .eq('usuario_id', cita.podologo_id)
+      .single();
+    const nombrePodologo = podologoData ? `${podologoData.nombres} ${podologoData.apellidos}` : null;
 
     const now = new Date().toISOString();
 
@@ -320,6 +339,19 @@ export class AppointmentService {
     if (updateCitaError) {
       throw new InternalServerErrorException(`Error actualizando cita: ${updateCitaError.message}`);
     }
+
+    // Auditoría: Actualización de observaciones de cita
+    await logAuditEvent(this.supabase, {
+      tabla: 'cita',
+      registroId: citaId,
+      accion: 'UPDATE',
+      usuarioId: cita.podologo_id,
+      usuarioNombre: nombrePodologo,
+      datosNuevos: {
+        observaciones_podologo: dto.observaciones_podologo,
+        procedimientos_realizados: dto.procedimientos_realizados,
+      },
+    });
 
     // 3. Upsert ficha_evaluacion (crear o actualizar)
     if (dto.evaluacion) {
@@ -351,12 +383,36 @@ export class AppointmentService {
           .update(evaluacionData)
           .eq('cita_id', citaId);
         if (error) throw new InternalServerErrorException(`Error actualizando evaluación: ${error.message}`);
+
+        // Auditoría: Actualización de evaluación del pie
+        await logAuditEvent(this.supabase, {
+          tabla: 'ficha_evaluacion',
+          registroId: existingEval.id,
+          accion: 'UPDATE',
+          usuarioId: cita.podologo_id,
+          usuarioNombre: nombrePodologo,
+          datosNuevos: evaluacionData,
+        });
       } else {
         // Insert
-        const { error } = await this.supabase
+        const { data: newEval, error } = await this.supabase
           .from('ficha_evaluacion')
-          .insert({ ...evaluacionData, fecha_creacion: now });
+          .insert({ ...evaluacionData, fecha_creacion: now })
+          .select('id')
+          .single();
         if (error) throw new InternalServerErrorException(`Error creando evaluación: ${error.message}`);
+
+        // Auditoría: Creación de evaluación del pie
+        if (newEval) {
+          await logAuditEvent(this.supabase, {
+            tabla: 'ficha_evaluacion',
+            registroId: newEval.id,
+            accion: 'INSERT',
+            usuarioId: cita.podologo_id,
+            usuarioNombre: nombrePodologo,
+            datosNuevos: evaluacionData,
+          });
+        }
       }
     }
 
@@ -387,12 +443,36 @@ export class AppointmentService {
           .update(ortesisData)
           .eq('cita_id', citaId);
         if (error) throw new InternalServerErrorException(`Error actualizando ortesis: ${error.message}`);
+
+        // Auditoría: Actualización de órtesis
+        await logAuditEvent(this.supabase, {
+          tabla: 'gestion_ortesis',
+          registroId: existingOrtesis.id,
+          accion: 'UPDATE',
+          usuarioId: cita.podologo_id,
+          usuarioNombre: nombrePodologo,
+          datosNuevos: ortesisData,
+        });
       } else {
         // Insert
-        const { error } = await this.supabase
+        const { data: newOrtesis, error } = await this.supabase
           .from('gestion_ortesis')
-          .insert({ ...ortesisData, fecha_creacion: now });
+          .insert({ ...ortesisData, fecha_creacion: now })
+          .select('id')
+          .single();
         if (error) throw new InternalServerErrorException(`Error creando ortesis: ${error.message}`);
+
+        // Auditoría: Creación de órtesis
+        if (newOrtesis) {
+          await logAuditEvent(this.supabase, {
+            tabla: 'gestion_ortesis',
+            registroId: newOrtesis.id,
+            accion: 'INSERT',
+            usuarioId: cita.podologo_id,
+            usuarioNombre: nombrePodologo,
+            datosNuevos: ortesisData,
+          });
+        }
       }
     }
 
@@ -416,6 +496,16 @@ export class AppointmentService {
             throw new InternalServerErrorException(`Error creando receta: ${recetaError?.message}`);
           }
 
+          // Auditoría: Creación de receta
+          await logAuditEvent(this.supabase, {
+            tabla: 'receta',
+            registroId: newReceta.id,
+            accion: 'INSERT',
+            usuarioId: cita.podologo_id,
+            usuarioNombre: nombrePodologo,
+            datosNuevos: { cita_id: citaId, medicamentos: receta.medicamentos.length },
+          });
+
           // Insertar detalles de receta
           const detalles = receta.medicamentos.map((med: any) => ({
             receta_id: newReceta.id,
@@ -424,12 +514,25 @@ export class AppointmentService {
             indicaciones: med.indicaciones || null,
           }));
 
-          const { error: detallesError } = await this.supabase
+          const { data: insertedDetalles, error: detallesError } = await this.supabase
             .from('detalles_receta')
-            .insert(detalles);
+            .insert(detalles)
+            .select('id');
 
           if (detallesError) {
             throw new InternalServerErrorException(`Error creando detalles de receta: ${detallesError.message}`);
+          }
+
+          // Auditoría: Creación de detalles de receta (agrupados)
+          if (insertedDetalles && insertedDetalles.length > 0) {
+            await logAuditEvent(this.supabase, {
+              tabla: 'detalles_receta',
+              registroId: `receta_${newReceta.id}`,
+              accion: 'INSERT',
+              usuarioId: cita.podologo_id,
+              usuarioNombre: nombrePodologo,
+              datosNuevos: { receta_id: newReceta.id, medicamentos: detalles },
+            });
           }
         }
       }
@@ -459,6 +562,9 @@ export class AppointmentService {
     }
 
     // Actualizar el estado
+    // Usamos podologo_id como usuario que hace el cambio (si es el podólogo)
+    // O paciente_id si es el paciente cancelando
+    const userId = estadoId === 3 ? cita.paciente_id : cita.podologo_id;
     const { error: updateError } = await this.supabase
       .from('cita')
       .update({
@@ -470,6 +576,38 @@ export class AppointmentService {
     if (updateError) {
       throw new InternalServerErrorException(`Error actualizando estado: ${updateError.message}`);
     }
+
+    // Obtener nombre del usuario que hace el cambio para auditoría
+    let usuarioNombre: string | null = null;
+    if (estadoId === 3) {
+      // Paciente cancelando
+      const { data: pacienteData } = await this.supabase
+        .from('paciente')
+        .select('nombres, apellidos')
+        .eq('usuario_id', cita.paciente_id)
+        .single();
+      usuarioNombre = pacienteData ? `${pacienteData.nombres} ${pacienteData.apellidos}` : null;
+    } else {
+      // Podólogo actualizando
+      const { data: podologoData } = await this.supabase
+        .from('podologo')
+        .select('nombres, apellidos')
+        .eq('usuario_id', cita.podologo_id)
+        .single();
+      usuarioNombre = podologoData ? `${podologoData.nombres} ${podologoData.apellidos}` : null;
+    }
+
+    // Registrar auditoría
+    await logAuditEvent(this.supabase, {
+      tabla: 'cita',
+      registroId: citaId,
+      accion: 'UPDATE',
+      usuarioId: userId,
+      usuarioNombre,
+      datosAnteriores: { estado_id: cita.estado_id },
+      datosNuevos: { estado_id: estadoId },
+    });
+
 
     // Obtener nombre del estado
     const { data: estado } = await this.supabase
@@ -572,6 +710,18 @@ export class AppointmentService {
       .select('nombres, apellidos')
       .eq('usuario_id', cita.podologo_id)
       .single();
+
+    // Registrar auditoría (con nombre del usuario)
+    const nombrePaciente = paciente ? `${paciente.nombres} ${paciente.apellidos}` : null;
+    await logAuditEvent(this.supabase, {
+      tabla: 'cita',
+      registroId: citaId,
+      accion: 'UPDATE',
+      usuarioId: cita.paciente_id,
+      usuarioNombre: nombrePaciente,
+      datosAnteriores: { fecha_hora_inicio: cita.fecha_hora_inicio },
+      datosNuevos: { fecha_hora_inicio: nuevaFechaHora },
+    });
 
     if (paciente && paciente.email) {
       const fechaNueva = new Date(nuevaFechaHora);

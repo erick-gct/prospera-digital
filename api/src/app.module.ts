@@ -12,6 +12,7 @@ import { StorageModule } from './storage/storage.module';
 import { HistorialModule } from './historial/historial.module';
 import { RecetaModule } from './receta/receta.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     HistorialModule,
     RecetaModule,
     DashboardModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

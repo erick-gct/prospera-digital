@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation"; // 1. Importamos router
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Clock, LogOut, Loader2 } from "lucide-react";
+import { Clock, LogOut, Loader2, Shield } from "lucide-react";
 
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/cliente"; // 2. Importamos cliente Supabase
@@ -19,12 +19,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { AuditModal } from "../features/auditoria/AuditModal"
 
 
 export function AppHeader() {
   const [time, setTime] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false); // Estado para loading
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [showAuditModal, setShowAuditModal] = useState(false)
+  const [userRole, setUserRole] = useState<"podologo" | "paciente" | null>(null)
+  const [userEmail, setUserEmail] = useState("")
   const router = useRouter();
   const supabase = createClient();
 
@@ -59,6 +63,31 @@ export function AppHeader() {
     if (intervalId) clearInterval(intervalId);
   };
 }, []);
+
+  // Detectar rol del usuario
+  useEffect(() => {
+    const detectUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      setUserEmail(user.email || "")
+
+      // Verificar si es podólogo (usando limit 1 en lugar de single para evitar error 406)
+      const { data: podologos } = await supabase
+        .from('podologo')
+        .select('usuario_id')
+        .eq('usuario_id', user.id)
+        .limit(1)
+
+      if (podologos && podologos.length > 0) {
+        setUserRole('podologo')
+      } else {
+        setUserRole('paciente')
+      }
+    }
+
+    detectUserRole()
+  }, [supabase])
 
      // Esta función solo abre el diálogo
   const handleLogoutClick = () => {
@@ -126,8 +155,21 @@ export function AppHeader() {
           <span>{time}</span>
         </div>
 
-        {/* Lado Derecho: Botón de Salir */}
-        <div>
+        {/* Lado Derecho: Botones */}
+        <div className="flex items-center gap-2">
+          {/* Botón de Auditoría (solo para podólogos) */}
+          {userRole === 'podologo' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAuditModal(true)}
+              className="text-muted-foreground hover:text-primary"
+              title="Auditoría del sistema"
+            >
+              <Shield className="h-4 w-4" />
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -165,6 +207,13 @@ export function AppHeader() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Auditoría */}
+      <AuditModal
+        open={showAuditModal}
+        onOpenChange={setShowAuditModal}
+        userEmail={userEmail}
+      />
     </>
   );
 }

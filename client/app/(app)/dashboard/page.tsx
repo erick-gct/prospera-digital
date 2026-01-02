@@ -16,24 +16,24 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        // Verificar si el usuario es paciente
-        const { data: paciente } = await supabase
+        // Verificar si el usuario es paciente (usando limit(1) para evitar error 406)
+        const { data: pacientes } = await supabase
           .from('paciente')
           .select('usuario_id')
           .eq('usuario_id', user.id)
-          .single()
+          .limit(1)
         
-        if (paciente) {
+        if (pacientes && pacientes.length > 0) {
           setRole('paciente')
         } else {
           // Verificar si es podólogo
-          const { data: podologo } = await supabase
+          const { data: podologos } = await supabase
             .from('podologo')
             .select('usuario_id')
             .eq('usuario_id', user.id)
-            .single()
+            .limit(1)
           
-          if (podologo) {
+          if (podologos && podologos.length > 0) {
             setRole('podologo')
           } else {
             setRole('admin')

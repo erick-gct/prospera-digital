@@ -104,4 +104,19 @@ export const ApiRoutes = {
       return `${API_BASE_URL}/dashboard/podologo/${userId}${queryString ? `?${queryString}` : ''}`;
     },
   },
+
+  // Auditoría
+  audit: {
+    verifyPassword: () => `${API_BASE_URL}/audit/verify-password`,
+    logs: (table?: string, limit?: number) => {
+      const params = new URLSearchParams();
+      if (table) params.append('table', table);
+      if (limit) params.append('limit', limit.toString());
+      const queryString = params.toString();
+      return `${API_BASE_URL}/audit/logs${queryString ? `?${queryString}` : ''}`;
+    },
+    loginHistory: (limit?: number) =>
+      `${API_BASE_URL}/audit/login-history${limit ? `?limit=${limit}` : ''}`,
+    tables: () => `${API_BASE_URL}/audit/tables`,
+  },
 };
