@@ -53,6 +53,7 @@ interface DashboardData {
     fecha_hora_inicio: string
     motivo_cita: string | null
     podologo_nombre: string | null
+    podologo_id: string | null
     estado_cita: { id: number; nombre: string } | null
   } | null
   estadisticas: {
@@ -611,6 +612,7 @@ export function DashboardPaciente() {
           citaId={String(data.proximaCita.id)}
           nombrePaciente={data.paciente ? `${data.paciente.nombres} ${data.paciente.apellidos}` : "Paciente"}
           fechaActual={parseISO(data.proximaCita.fecha_hora_inicio)}
+          podologoId={data.proximaCita.podologo_id || ""}
           onSuccess={handleRescheduleSuccess}
         />
       )}

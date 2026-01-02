@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { CalendarIcon, Clock, CalendarClock, Loader2 } from "lucide-react"
@@ -33,6 +33,7 @@ interface RescheduleModalProps {
   citaId: string
   nombrePaciente: string
   fechaActual: Date
+  podologoId: string
   onSuccess: () => void
 }
 
@@ -65,14 +66,48 @@ export function RescheduleModal({
   citaId, 
   nombrePaciente, 
   fechaActual,
+  podologoId,
   onSuccess 
 }: RescheduleModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState("")
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [bookedSlots, setBookedSlots] = useState<string[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
 
   const timeSlots = generateTimeSlots(selectedDate)
+
+  // Cargar horas ocupadas cuando cambia la fecha
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!selectedDate || !podologoId) {
+        setBookedSlots([])
+        return
+      }
+
+      setLoadingSlots(true)
+      try {
+        const dateStr = format(selectedDate, 'yyyy-MM-dd')
+        const res = await fetch(ApiRoutes.citas.byDate(podologoId, dateStr))
+        if (res.ok) {
+          const citas = await res.json()
+          const horasOcupadas = citas
+            .filter((c: { estado_id: number; id: string }) => c.estado_id !== 3 && c.id !== citaId) // Excluir canceladas y la misma cita
+            .map((c: { fecha_hora_inicio: string }) => {
+              const fecha = new Date(c.fecha_hora_inicio)
+              return format(fecha, 'HH:mm')
+            })
+          setBookedSlots(horasOcupadas)
+        }
+      } catch (error) {
+        console.error('Error fetching booked slots:', error)
+      } finally {
+        setLoadingSlots(false)
+      }
+    }
+    fetchBookedSlots()
+  }, [selectedDate, podologoId, citaId])
 
   // Deshabilitar días pasados
   const disabledDays = (date: Date) => {
@@ -175,25 +210,42 @@ export function RescheduleModal({
                 <label className="text-sm font-medium flex items-center gap-2">
                   <Clock className="h-4 w-4 text-primary" />
                   Nueva Hora
+                  {bookedSlots.length > 0 && (
+                    <span className="text-xs text-orange-600">
+                      ({bookedSlots.length} no disponible)
+                    </span>
+                  )}
                 </label>
                 {selectedDate ? (
                   <div className="border rounded-lg p-3 h-[300px] overflow-y-auto">
-                    <div className="grid grid-cols-3 gap-2">
-                      {timeSlots.map((time) => (
-                        <Button
-                          key={time}
-                          variant={selectedTime === time ? "default" : "outline"}
-                          size="sm"
-                          className={cn(
-                            "text-xs",
-                            selectedTime === time && "ring-2 ring-primary ring-offset-2"
-                          )}
-                          onClick={() => setSelectedTime(time)}
-                        >
-                          {time}
-                        </Button>
-                      ))}
-                    </div>
+                    {loadingSlots ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        Cargando disponibilidad...
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {timeSlots.map((time) => {
+                          const isBooked = bookedSlots.includes(time)
+                          return (
+                            <Button
+                              key={time}
+                              variant={selectedTime === time ? "default" : isBooked ? "ghost" : "outline"}
+                              size="sm"
+                              disabled={isBooked}
+                              className={cn(
+                                "text-xs",
+                                selectedTime === time && "ring-2 ring-primary ring-offset-2",
+                                isBooked && "opacity-50 cursor-not-allowed line-through bg-muted text-muted-foreground"
+                              )}
+                              onClick={() => !isBooked && setSelectedTime(time)}
+                            >
+                              {time}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="border rounded-lg p-6 h-[300px] flex items-center justify-center text-center">

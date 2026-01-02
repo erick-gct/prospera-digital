@@ -129,6 +129,10 @@ export function AppointmentForm() {
 
   // Estado para el ID del usuario autenticado
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // Estado para horas ocupadas
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Obtener el ID del usuario autenticado y lista de podólogos al montar
   useEffect(() => {
@@ -155,6 +159,38 @@ export function AppointmentForm() {
     };
     fetchPodologos();
   }, []);
+
+  // Cargar horas ocupadas cuando cambia fecha o podólogo
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!appointmentData.fecha || !appointmentData.podologoId) {
+        setBookedSlots([]);
+        return;
+      }
+
+      setLoadingSlots(true);
+      try {
+        const dateStr = format(appointmentData.fecha, 'yyyy-MM-dd');
+        const res = await fetch(ApiRoutes.citas.byDate(appointmentData.podologoId, dateStr));
+        if (res.ok) {
+          const citas = await res.json();
+          // Extraer las horas de las citas activas (no canceladas)
+          const horasOcupadas = citas
+            .filter((c: { estado_id: number }) => c.estado_id !== 3) // Excluir canceladas
+            .map((c: { fecha_hora_inicio: string }) => {
+              const fecha = new Date(c.fecha_hora_inicio);
+              return format(fecha, 'HH:mm');
+            });
+          setBookedSlots(horasOcupadas);
+        }
+      } catch (error) {
+        console.error('Error fetching booked slots:', error);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    fetchBookedSlots();
+  }, [appointmentData.fecha, appointmentData.podologoId]);
 
   // Calcular índice actual y progreso
   const currentStepIndex = stepper.all.findIndex(
@@ -595,25 +631,41 @@ export function AppointmentForm() {
                           ? format(appointmentData.fecha, "EEEE d 'de' MMMM", { locale: es })
                           : "Selecciona una hora"}
                       </p>
+                      {bookedSlots.length > 0 && (
+                        <p className="text-xs text-orange-600">
+                          {bookedSlots.length} horario(s) no disponible(s)
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[240px] overflow-y-auto p-2 border rounded-lg bg-background">
-                      {timeSlots.map((time) => (
-                        <Button
-                          key={time}
-                          type="button"
-                          variant={
-                            appointmentData.hora === time ? "default" : "outline"
-                          }
-                          className={cn(
-                            "h-10 text-sm",
-                            appointmentData.hora === time &&
-                              "ring-2 ring-primary ring-offset-2"
-                          )}
-                          onClick={() => handleTimeSelect(time)}
-                        >
-                          {time}
-                        </Button>
-                      ))}
+                      {loadingSlots ? (
+                        <div className="col-span-full text-center py-4 text-muted-foreground">
+                          Cargando disponibilidad...
+                        </div>
+                      ) : (
+                        timeSlots.map((time) => {
+                          const isBooked = bookedSlots.includes(time);
+                          return (
+                            <Button
+                              key={time}
+                              type="button"
+                              variant={
+                                appointmentData.hora === time ? "default" : isBooked ? "ghost" : "outline"
+                              }
+                              disabled={isBooked}
+                              className={cn(
+                                "h-10 text-sm",
+                                appointmentData.hora === time &&
+                                  "ring-2 ring-primary ring-offset-2",
+                                isBooked && "opacity-50 cursor-not-allowed line-through bg-muted text-muted-foreground"
+                              )}
+                              onClick={() => !isBooked && handleTimeSelect(time)}
+                            >
+                              {time}
+                            </Button>
+                          );
+                        })
+                      )}
                     </div>
                     {appointmentData.hora && (
                       <div className="bg-primary/10 p-3 rounded-lg text-center">

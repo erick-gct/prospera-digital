@@ -117,6 +117,7 @@ export default function GestionCitasPage() {
             onSelectCita={handleSelectCita}
             selectedDate={selectedDate}
             onRefresh={fetchCitas}
+            podologoId={podologoId || ""}
           />
         </div>
       )}

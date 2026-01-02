@@ -59,6 +59,7 @@ interface AppointmentsListProps {
   onSelectCita: (cita: CitaGestion) => void
   selectedDate: Date
   onRefresh: () => void
+  podologoId: string
 }
 
 // Colores por estado
@@ -74,7 +75,7 @@ const ESTADO_OPTIONS = [
   { value: "2", label: "Completada" },
 ]
 
-export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate, onRefresh }: AppointmentsListProps) {
+export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate, onRefresh, podologoId }: AppointmentsListProps) {
   const [loadingCitaId, setLoadingCitaId] = useState<string | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
@@ -339,6 +340,7 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
               : "Paciente"
           }
           fechaActual={parseISO(rescheduleModal.cita.fecha_hora_inicio)}
+          podologoId={podologoId}
           onSuccess={onRefresh}
         />
       )}
