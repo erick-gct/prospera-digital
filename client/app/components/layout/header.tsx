@@ -8,6 +8,7 @@ import { Clock, LogOut, Loader2, Shield } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/cliente"; // 2. Importamos cliente Supabase
 import { toast } from "sonner";
+import { ApiRoutes } from "@/lib/api-routes";
 // 1. Importamos los componentes del Alert Dialog
 import {
   AlertDialog,
@@ -29,6 +30,7 @@ export function AppHeader() {
   const [showAuditModal, setShowAuditModal] = useState(false)
   const [userRole, setUserRole] = useState<"podologo" | "paciente" | null>(null)
   const [userEmail, setUserEmail] = useState("")
+  const [userId, setUserId] = useState("")
   const router = useRouter();
   const supabase = createClient();
 
@@ -71,6 +73,7 @@ export function AppHeader() {
       if (!user) return
 
       setUserEmail(user.email || "")
+      setUserId(user.id)
 
       // Verificar si es podólogo (usando limit 1 en lugar de single para evitar error 406)
       const { data: podologos } = await supabase
@@ -98,9 +101,19 @@ export function AppHeader() {
   const handleConfirmLogout = async () => {
     try {
       setIsLoggingOut(true)
-      // Cerramos el diálogo inmediatamente para mostrar el estado de carga en el botón si quisiéramos,
-      // o lo dejamos abierto con loading. En este caso, cerramos el diálogo y mostramos loading en UI general si fuera necesario.
-      // Pero como es rápido, simplemente procedemos.
+      
+      // Registrar logout en historial (no bloqueante)
+      if (userId && userEmail) {
+        try {
+          await fetch(ApiRoutes.auth.logout, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, email: userEmail }),
+          })
+        } catch (e) {
+          console.warn('No se pudo registrar logout:', e)
+        }
+      }
       
       const { error } = await supabase.auth.signOut()
       

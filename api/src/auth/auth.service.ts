@@ -83,7 +83,16 @@ export class AuthService {
 
     console.log(`(API) Login exitoso. Rol detectado: ${role}`);
 
-    // 3. Devolver todo junto
+    // 4. Registrar en historial_acceso
+    await this.supabase.from('historial_acceso').insert({
+      usuario_id: userId,
+      email: email,
+      accion: 'LOGIN',
+      ip_address: null, // Se podría obtener del request si se pasa como parámetro
+      fecha_hora: new Date().toISOString(),
+    });
+
+    // 5. Devolver todo junto
     return {
       ...data, // session y user
       role,
@@ -183,5 +192,27 @@ export class AuthService {
       ...authData,
       role: 'PACIENTE',
     };
+  }
+
+  /**
+   * Registrar logout en historial_acceso
+   */
+  async logLogout(userId: string, email: string): Promise<{ success: boolean }> {
+    console.log(`(API) Registrando logout para: ${email}`);
+
+    const { error } = await this.supabase.from('historial_acceso').insert({
+      usuario_id: userId,
+      email: email,
+      accion: 'LOGOUT',
+      ip_address: null,
+      fecha_hora: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error('(API) Error registrando logout:', error.message);
+      // No lanzamos excepción para no bloquear el logout
+    }
+
+    return { success: true };
   }
 }

@@ -105,36 +105,43 @@ export class AuditService {
       return [];
     }
 
-    // Enriquecer con nombres de usuario
+    // Enriquecer con nombres reales
     const enrichedHistory = await Promise.all(
       (data || []).map(async (entry) => {
-        let usuarioNombre = 'Usuario';
+        let nombreCompleto = 'Usuario';
 
         if (entry.usuario_id) {
-          const { data: podologo } = await this.supabase
+          // Buscar en podólogos (usando limit en lugar de single para evitar errores)
+          const { data: podologos } = await this.supabase
             .from('podologo')
             .select('nombres, apellidos')
             .eq('usuario_id', entry.usuario_id)
-            .single();
+            .limit(1);
 
-          if (podologo) {
-            usuarioNombre = `${podologo.nombres} ${podologo.apellidos}`;
+          if (podologos && podologos.length > 0) {
+            nombreCompleto = `${podologos[0].nombres} ${podologos[0].apellidos}`;
           } else {
-            const { data: paciente } = await this.supabase
+            // Buscar en pacientes
+            const { data: pacientes } = await this.supabase
               .from('paciente')
               .select('nombres, apellidos')
               .eq('usuario_id', entry.usuario_id)
-              .single();
+              .limit(1);
 
-            if (paciente) {
-              usuarioNombre = `${paciente.nombres} ${paciente.apellidos}`;
+            if (pacientes && pacientes.length > 0) {
+              nombreCompleto = `${pacientes[0].nombres} ${pacientes[0].apellidos}`;
             }
           }
         }
 
+        // Formato: "Nombre Completo (email)"
+        const displayName = entry.email
+          ? `${nombreCompleto} (${entry.email})`
+          : nombreCompleto;
+
         return {
           ...entry,
-          usuario_nombre: usuarioNombre,
+          usuario_nombre: displayName,
         };
       }),
     );
