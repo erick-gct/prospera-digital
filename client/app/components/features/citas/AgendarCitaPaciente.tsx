@@ -151,11 +151,13 @@ export function AgendarCitaPaciente() {
     const fetchPodologo = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (user) {
           setPodologoId(user.id);
-          
+
           // Obtener datos del podólogo
           const res = await fetch(ApiRoutes.podologos.byId(user.id));
           if (res.ok) {
@@ -184,9 +186,11 @@ export function AgendarCitaPaciente() {
         params.append("cedula", cedulaSearch);
         params.append("estado", "activo");
 
-        const res = await fetch(`${ApiRoutes.pacientes.base}?${params.toString()}`);
+        const res = await fetch(
+          `${ApiRoutes.pacientes.base}?${params.toString()}`
+        );
         if (!res.ok) throw new Error("Error al buscar pacientes");
-        
+
         const data = await res.json();
         setPatients(data);
       } catch (error) {
@@ -217,14 +221,14 @@ export function AgendarCitaPaciente() {
       try {
         const dateStr = format(appointmentData.fecha, "yyyy-MM-dd");
         const res = await fetch(ApiRoutes.citas.byDate(podologoId, dateStr));
-        
+
         if (!res.ok) throw new Error("Error al cargar disponibilidad");
-        
+
         const citas = await res.json();
         // Filtrar citas canceladas (estado_id !== 3)
         const slots = citas
           .filter((c: { estado_id: number }) => c.estado_id !== 3)
-          .map((c: { fecha_hora_inicio: string }) => 
+          .map((c: { fecha_hora_inicio: string }) =>
             format(new Date(c.fecha_hora_inicio), "HH:mm")
           );
         setBookedSlots(slots);
@@ -266,7 +270,9 @@ export function AgendarCitaPaciente() {
     }));
   };
 
-  const handleObservacionesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleObservacionesChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
     setAppointmentData((prev) => ({ ...prev, observaciones: e.target.value }));
   };
 
@@ -485,7 +491,8 @@ export function AgendarCitaPaciente() {
                                 </p>
                               )}
                             </div>
-                            {selectedPatient?.usuario_id === patient.usuario_id && (
+                            {selectedPatient?.usuario_id ===
+                              patient.usuario_id && (
                               <Check className="h-5 w-5 text-primary" />
                             )}
                           </div>
@@ -494,12 +501,14 @@ export function AgendarCitaPaciente() {
                     </div>
                   )}
 
-                  {!loadingPatients && cedulaSearch.length >= 2 && patients.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                      <p>No se encontraron pacientes con esa cédula</p>
-                    </div>
-                  )}
+                  {!loadingPatients &&
+                    cedulaSearch.length >= 2 &&
+                    patients.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p>No se encontraron pacientes con esa cédula</p>
+                      </div>
+                    )}
 
                   {cedulaSearch.length < 2 && !selectedPatient && (
                     <div className="text-center py-8 text-muted-foreground">
@@ -533,7 +542,9 @@ export function AgendarCitaPaciente() {
                   <div className="space-y-4 p-4 rounded-lg bg-muted/30">
                     <div className="text-center space-y-2">
                       <ClipboardList className="w-10 h-10 mx-auto text-primary" />
-                      <h3 className="text-lg font-semibold">Motivo de la cita</h3>
+                      <h3 className="text-lg font-semibold">
+                        Motivo de la cita
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         ¿Por qué viene el paciente?
                       </p>
@@ -584,7 +595,9 @@ export function AgendarCitaPaciente() {
                   <div className="space-y-4 p-4 rounded-lg bg-muted/30">
                     <div className="text-center space-y-2">
                       <CalendarIcon className="w-10 h-10 mx-auto text-primary" />
-                      <h3 className="text-lg font-semibold">Fecha de la cita</h3>
+                      <h3 className="text-lg font-semibold">
+                        Fecha de la cita
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         Elige el día de la consulta
                       </p>
@@ -628,7 +641,9 @@ export function AgendarCitaPaciente() {
                   <div className="space-y-4 p-4 rounded-lg bg-muted/30">
                     <div className="text-center space-y-2">
                       <Clock className="w-10 h-10 mx-auto text-primary" />
-                      <h3 className="text-lg font-semibold">Horario disponible</h3>
+                      <h3 className="text-lg font-semibold">
+                        Horario disponible
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         {appointmentData.fecha
                           ? format(appointmentData.fecha, "EEEE d 'de' MMMM", {
@@ -669,7 +684,9 @@ export function AgendarCitaPaciente() {
                                 isBooked &&
                                   "opacity-50 cursor-not-allowed line-through bg-muted text-muted-foreground"
                               )}
-                              onClick={() => !isBooked && handleTimeSelect(time)}
+                              onClick={() =>
+                                !isBooked && handleTimeSelect(time)
+                              }
                             >
                               {time}
                             </Button>
@@ -749,7 +766,9 @@ export function AgendarCitaPaciente() {
                       </p>
                       <p className="text-base font-semibold">
                         {appointmentData.fecha
-                          ? format(appointmentData.fecha, "PPPP", { locale: es })
+                          ? format(appointmentData.fecha, "PPPP", {
+                              locale: es,
+                            })
                           : "-"}
                       </p>
                     </div>
@@ -776,7 +795,9 @@ export function AgendarCitaPaciente() {
                       <p className="text-sm font-medium text-muted-foreground">
                         Motivo de la cita
                       </p>
-                      <p className="text-base font-semibold">{getMotivoFinal()}</p>
+                      <p className="text-base font-semibold">
+                        {getMotivoFinal()}
+                      </p>
                     </div>
                   </div>
 
@@ -787,7 +808,9 @@ export function AgendarCitaPaciente() {
                         <p className="text-sm font-medium text-muted-foreground">
                           Observaciones
                         </p>
-                        <p className="text-sm">{appointmentData.observaciones}</p>
+                        <p className="text-sm">
+                          {appointmentData.observaciones}
+                        </p>
                       </div>
                     </div>
                   )}

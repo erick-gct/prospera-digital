@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { AgendarCitaPaciente } from "@/app/components/features/citas/AgendarCitaPaciente"
-import { CalendarPlus } from "lucide-react"
+import { AgendarCitaPaciente } from "@/app/components/features/citas/AgendarCitaPaciente";
+import { CalendarPlus } from "lucide-react";
 
 export default function AgendarPacientePage() {
   return (
@@ -12,7 +12,9 @@ export default function AgendarPacientePage() {
           <CalendarPlus className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agendar Cita a Paciente</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Agendar Cita a Paciente
+          </h1>
           <p className="text-muted-foreground">
             Programa una cita para uno de tus pacientes
           </p>
@@ -22,5 +24,5 @@ export default function AgendarPacientePage() {
       {/* Componente principal */}
       <AgendarCitaPaciente />
     </div>
-  )
+  );
 }
