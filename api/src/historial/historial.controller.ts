@@ -3,7 +3,7 @@ import { HistorialService } from './historial.service';
 
 @Controller('historial')
 export class HistorialController {
-  constructor(private readonly historialService: HistorialService) { }
+  constructor(private readonly historialService: HistorialService) {}
 
   @Get('search')
   searchPatients(
@@ -22,7 +22,7 @@ export class HistorialController {
     return this.historialService.getPatientHistory(
       id,
       months ? parseInt(months, 10) : undefined,
-      estado ? parseInt(estado, 10) : undefined
+      estado ? parseInt(estado, 10) : undefined,
     );
   }
 

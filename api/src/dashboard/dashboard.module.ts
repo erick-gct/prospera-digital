@@ -7,4 +7,4 @@ import { DashboardService } from './dashboard.service';
   providers: [DashboardService],
   exports: [DashboardService],
 })
-export class DashboardModule { }
+export class DashboardModule {}

@@ -4,7 +4,7 @@ import { UpdatePodologoDto } from './dto/update-podologo.dto';
 
 @Controller('podologos')
 export class PodologoController {
-  constructor(private readonly podologoService: PodologoService) { }
+  constructor(private readonly podologoService: PodologoService) {}
 
   @Get()
   findAll() {
@@ -17,7 +17,10 @@ export class PodologoController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePodologoDto: UpdatePodologoDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updatePodologoDto: UpdatePodologoDto,
+  ) {
     return this.podologoService.update(id, updatePodologoDto);
   }
 }

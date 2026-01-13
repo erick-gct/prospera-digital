@@ -4,11 +4,13 @@ import { RecetaService } from './receta.service';
 
 @Controller('recetas')
 export class RecetaController {
-  constructor(private readonly recetaService: RecetaService) { }
+  constructor(private readonly recetaService: RecetaService) {}
 
   @Get(':id/pdf')
   async downloadPdf(@Param('id') id: string, @Res() res: any) {
-    const pdfBuffer = await this.recetaService.generateRecetaPdf(parseInt(id, 10));
+    const pdfBuffer = await this.recetaService.generateRecetaPdf(
+      parseInt(id, 10),
+    );
 
     res.set({
       'Content-Type': 'application/pdf',

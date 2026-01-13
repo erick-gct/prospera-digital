@@ -26,12 +26,14 @@ export class PatientService {
     // Iniciamos la consulta base
     let query = this.supabase
       .from('paciente')
-      .select(`
+      .select(
+        `
         *,
         paises (nombre),
         tipos_sangre (nombre),
         estado_paciente (nombre)
-      `)
+      `,
+      )
       .order('apellidos', { ascending: true });
 
     // Aplicamos filtros si existen
@@ -40,7 +42,7 @@ export class PatientService {
       if (filters.cedula) {
         query = query.ilike('cedula', `%${filters.cedula}%`);
       }
-      // Filtro por Apellido (búsqueda parcial 'ilike') 
+      // Filtro por Apellido (búsqueda parcial 'ilike')
       if (filters.apellido) {
         query = query.ilike('apellidos', `%${filters.apellido}%`);
       }

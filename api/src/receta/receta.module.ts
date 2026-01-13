@@ -7,4 +7,4 @@ import { RecetaService } from './receta.service';
   providers: [RecetaService],
   exports: [RecetaService],
 })
-export class RecetaModule { }
+export class RecetaModule {}

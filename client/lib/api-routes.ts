@@ -120,4 +120,57 @@ export const ApiRoutes = {
       `${API_BASE_URL}/audit/login-history${limit ? `?limit=${limit}` : ''}`,
     tables: () => `${API_BASE_URL}/audit/tables`,
   },
+
+  // =====================================================
+  // ADMINISTRADOR - Nuevas rutas
+  // =====================================================
+  admin: {
+    // Gestión de Usuarios
+    usuarios: {
+      base: `${API_BASE_URL}/admin/usuarios`,
+      byId: (id: string) => `${API_BASE_URL}/admin/usuarios/${id}`,
+      deactivate: (id: string) => `${API_BASE_URL}/admin/usuarios/${id}/desactivar`,
+      reactivate: (id: string) => `${API_BASE_URL}/admin/usuarios/${id}/reactivar`,
+      list: (filters?: { tipo?: string; cedula?: string; apellido?: string; estado?: string }) => {
+        const params = new URLSearchParams();
+        if (filters?.tipo && filters.tipo !== 'todos') params.append('tipo', filters.tipo);
+        if (filters?.cedula) params.append('cedula', filters.cedula);
+        if (filters?.apellido) params.append('apellido', filters.apellido);
+        if (filters?.estado && filters.estado !== 'todos') params.append('estado', filters.estado);
+        const queryString = params.toString();
+        return `${API_BASE_URL}/admin/usuarios${queryString ? `?${queryString}` : ''}`;
+      },
+    },
+    // Citas Globales
+    citas: {
+      base: `${API_BASE_URL}/admin/citas`,
+      list: (filters?: { estado?: string; fechaInicio?: string; fechaFin?: string; podologoId?: string }) => {
+        const params = new URLSearchParams();
+        if (filters?.estado && filters.estado !== 'todos') params.append('estado', filters.estado);
+        if (filters?.fechaInicio) params.append('fechaInicio', filters.fechaInicio);
+        if (filters?.fechaFin) params.append('fechaFin', filters.fechaFin);
+        if (filters?.podologoId) params.append('podologoId', filters.podologoId);
+        const queryString = params.toString();
+        return `${API_BASE_URL}/admin/citas${queryString ? `?${queryString}` : ''}`;
+      },
+    },
+    // Estadísticas
+    stats: `${API_BASE_URL}/admin/stats`,
+    podologosList: `${API_BASE_URL}/admin/podologos-list`,
+    // Crear Podólogo
+    createPodologo: `${API_BASE_URL}/admin/podologos`,
+    // Auditoría (sin verificación)
+    auditoria: {
+      logs: (table?: string, limit?: number) => {
+        const params = new URLSearchParams();
+        if (table) params.append('table', table);
+        if (limit) params.append('limit', limit.toString());
+        const queryString = params.toString();
+        return `${API_BASE_URL}/admin/auditoria/logs${queryString ? `?${queryString}` : ''}`;
+      },
+      loginHistory: (limit?: number) =>
+        `${API_BASE_URL}/admin/auditoria/login-history${limit ? `?limit=${limit}` : ''}`,
+      tables: `${API_BASE_URL}/admin/auditoria/tables`,
+    },
+  },
 };

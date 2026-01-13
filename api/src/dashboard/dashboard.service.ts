@@ -8,7 +8,9 @@ export class DashboardService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
 
@@ -20,7 +22,8 @@ export class DashboardService {
     const ahora = new Date().toISOString();
     const { data: proximaCita } = await this.supabase
       .from('cita')
-      .select(`
+      .select(
+        `
         id,
         fecha_hora_inicio,
         motivo_cita,
@@ -29,7 +32,8 @@ export class DashboardService {
           id,
           nombre
         )
-      `)
+      `,
+      )
       .eq('paciente_id', userId)
       .eq('estado_id', 1) // Reservada
       .gte('fecha_hora_inicio', ahora)
@@ -85,7 +89,7 @@ export class DashboardService {
     console.log('Dashboard Debug - citasError:', citasError);
     console.log('Dashboard Debug - proximaCita:', proximaCita);
 
-    const citaIdList = (citasIds || []).map(c => c.id);
+    const citaIdList = (citasIds || []).map((c) => c.id);
 
     // 4. Contar documentos clínicos
     let documentosCount = 0;
@@ -155,11 +159,20 @@ export class DashboardService {
     }
 
     // 8. Documentos y recetas de la última cita modificada
-    let ultimosDocs: { id: number; nombre_archivo: string; tipo_archivo: string }[] = [];
-    let recetasAgrupadas: {
+    let ultimosDocs: {
+      id: number;
+      nombre_archivo: string;
+      tipo_archivo: string;
+    }[] = [];
+    const recetasAgrupadas: {
       id: number;
       diagnostico_receta: string | null;
-      detalles: { id: number; medicamento: string; dosis: string | null; indicaciones: string | null }[]
+      detalles: {
+        id: number;
+        medicamento: string;
+        dosis: string | null;
+        indicaciones: string | null;
+      }[];
     }[] = [];
 
     if (ultimaCita) {
@@ -202,14 +215,18 @@ export class DashboardService {
       .single();
 
     return {
-      paciente: paciente ? {
-        nombres: paciente.nombres,
-        apellidos: paciente.apellidos,
-      } : null,
-      proximaCita: proximaCita ? {
-        ...proximaCita,
-        podologo_nombre: podologoNombre,
-      } : null,
+      paciente: paciente
+        ? {
+            nombres: paciente.nombres,
+            apellidos: paciente.apellidos,
+          }
+        : null,
+      proximaCita: proximaCita
+        ? {
+            ...proximaCita,
+            podologo_nombre: podologoNombre,
+          }
+        : null,
       estadisticas: {
         totalCitas: totalCitas || 0,
         completadas: completadas || 0,
@@ -220,11 +237,13 @@ export class DashboardService {
       recetas: recetasCount,
       ortesis: ortesisCount,
       ultimaEvaluacion,
-      ultimaCitaData: ultimaCita ? {
-        id: ultimaCita.id,
-        documentos: ultimosDocs,
-        recetas: recetasAgrupadas,
-      } : null,
+      ultimaCitaData: ultimaCita
+        ? {
+            id: ultimaCita.id,
+            documentos: ultimosDocs,
+            recetas: recetasAgrupadas,
+          }
+        : null,
     };
   }
 
@@ -304,7 +323,7 @@ export class DashboardService {
       .gte('fecha_hora_inicio', startOfMonth.toISOString())
       .lte('fecha_hora_inicio', endOfMonth.toISOString());
 
-    const citaIdsMes = (citasDelMes || []).map(c => c.id);
+    const citaIdsMes = (citasDelMes || []).map((c) => c.id);
 
     let documentosMes = 0;
     let recetasMes = 0;
@@ -325,14 +344,16 @@ export class DashboardService {
     // 5. Última cita modificada (global, no solo del mes)
     const { data: ultimaCitaModificada } = await this.supabase
       .from('cita')
-      .select(`
+      .select(
+        `
         id,
         fecha_hora_inicio,
         fecha_modificacion,
         motivo_cita,
         paciente_id,
         estado_cita (nombre)
-      `)
+      `,
+      )
       .eq('podologo_id', userId)
       .order('fecha_modificacion', { ascending: false })
       .limit(1)
@@ -401,7 +422,13 @@ export class DashboardService {
       .order('fecha_hora_inicio', { ascending: true });
 
     // Obtener nombres de pacientes para citas de hoy
-    const citasHoyDetalles: { id: number; hora: string; paciente: string; motivo: string | null; estadoId: number }[] = [];
+    const citasHoyDetalles: {
+      id: number;
+      hora: string;
+      paciente: string;
+      motivo: string | null;
+      estadoId: number;
+    }[] = [];
     if (citasHoyData && citasHoyData.length > 0) {
       for (const cita of citasHoyData) {
         let nombrePaciente = 'Paciente';
@@ -426,10 +453,12 @@ export class DashboardService {
     }
 
     return {
-      podologo: podologo ? {
-        nombres: podologo.nombres,
-        apellidos: podologo.apellidos,
-      } : null,
+      podologo: podologo
+        ? {
+            nombres: podologo.nombres,
+            apellidos: podologo.apellidos,
+          }
+        : null,
       mesSeleccionado: {
         month: targetMonth,
         year: targetYear,
@@ -449,12 +478,13 @@ export class DashboardService {
       recetasMes,
       citasHoy: citasHoy || 0,
       citasHoyDetalles,
-      ultimaCitaModificada: ultimaCitaModificada ? {
-        ...ultimaCitaModificada,
-        paciente_nombre: ultimaCitaPaciente,
-      } : null,
+      ultimaCitaModificada: ultimaCitaModificada
+        ? {
+            ...ultimaCitaModificada,
+            paciente_nombre: ultimaCitaPaciente,
+          }
+        : null,
       ultimoPacienteAtendido,
     };
   }
 }
-

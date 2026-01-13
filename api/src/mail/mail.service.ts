@@ -25,17 +25,23 @@ export class MailService {
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    this.fromAddress = this.configService.get<string>('MAIL_FROM_ADDRESS') || 'onboarding@resend.dev';
+    this.fromAddress =
+      this.configService.get<string>('MAIL_FROM_ADDRESS') ||
+      'onboarding@resend.dev';
 
     if (!apiKey) {
-      console.warn('⚠️ ADVERTENCIA: RESEND_API_KEY no está definida. Los correos no se enviarán.');
+      console.warn(
+        '⚠️ ADVERTENCIA: RESEND_API_KEY no está definida. Los correos no se enviarán.',
+      );
     }
 
     this.resend = new Resend(apiKey);
 
     // Inicializar cliente Supabase para logging
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
 
@@ -61,7 +67,9 @@ export class MailService {
       const destinatario = mailPrueba || to;
 
       if (mailPrueba) {
-        console.log(`(Mail) MODO PRUEBA: Enviando a ${mailPrueba} (original: ${to})`);
+        console.log(
+          `(Mail) MODO PRUEBA: Enviando a ${mailPrueba} (original: ${to})`,
+        );
       }
 
       const data = await this.resend.emails.send({
@@ -71,7 +79,9 @@ export class MailService {
         html: htmlContent,
       });
 
-      console.log(`(Mail) Correo enviado a ${destinatario}. ID: ${data.data?.id}`);
+      console.log(
+        `(Mail) Correo enviado a ${destinatario}. ID: ${data.data?.id}`,
+      );
       return { success: true, data };
     } catch (error) {
       console.error('(Mail) Error enviando correo:', error);
@@ -82,7 +92,11 @@ export class MailService {
   /**
    * Plantilla HTML base para que se vea profesional
    */
-  private getHtmlTemplate(title: string, body: string, headerColor: string = '#2A9D8F'): string {
+  private getHtmlTemplate(
+    title: string,
+    body: string,
+    headerColor: string = '#2A9D8F',
+  ): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -146,7 +160,7 @@ export class MailService {
     hora: string,
     nombrePodologo: string,
     citaId?: number,
-    destinatarioId?: string
+    destinatarioId?: string,
   ) {
     const fechaCreacion = new Date().toISOString();
 
@@ -166,7 +180,11 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body, '#2A9D8F');
-    const result = await this.sendEmail(email, 'Cita Confirmada - Prospera Digital', html);
+    const result = await this.sendEmail(
+      email,
+      'Cita Confirmada - Prospera Digital',
+      html,
+    );
 
     // Registrar en log si tenemos la info necesaria
     if (citaId && destinatarioId) {
@@ -177,7 +195,9 @@ export class MailService {
         estado: result.success ? 'enviado' : 'fallido',
         fecha_creacion: fechaCreacion,
         fecha_envio: result.success ? new Date().toISOString() : null,
-        error_mensaje: result.success ? null : (result.error || 'Error desconocido'),
+        error_mensaje: result.success
+          ? null
+          : result.error || 'Error desconocido',
       });
     }
 
@@ -196,7 +216,7 @@ export class MailService {
     horaNueva: string,
     nombrePodologo: string,
     citaId: number,
-    destinatarioId: string
+    destinatarioId: string,
   ) {
     const fechaCreacion = new Date().toISOString();
 
@@ -219,7 +239,11 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body, '#f59e0b');
-    const result = await this.sendEmail(email, 'Cita Reagendada - Prospera Digital', html);
+    const result = await this.sendEmail(
+      email,
+      'Cita Reagendada - Prospera Digital',
+      html,
+    );
 
     // Registrar en log
     await this.logNotification({
@@ -229,7 +253,9 @@ export class MailService {
       estado: result.success ? 'enviado' : 'fallido',
       fecha_creacion: fechaCreacion,
       fecha_envio: result.success ? new Date().toISOString() : null,
-      error_mensaje: result.success ? null : (result.error || 'Error desconocido'),
+      error_mensaje: result.success
+        ? null
+        : result.error || 'Error desconocido',
     });
 
     return result;
@@ -246,7 +272,7 @@ export class MailService {
     nombrePodologo: string,
     motivoCancelacion: string | null,
     citaId: number,
-    destinatarioId: string
+    destinatarioId: string,
   ) {
     const fechaCreacion = new Date().toISOString();
 
@@ -269,7 +295,11 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body, '#ef4444');
-    const result = await this.sendEmail(email, 'Cita Cancelada - Prospera Digital', html);
+    const result = await this.sendEmail(
+      email,
+      'Cita Cancelada - Prospera Digital',
+      html,
+    );
 
     // Registrar en log
     await this.logNotification({
@@ -279,7 +309,9 @@ export class MailService {
       estado: result.success ? 'enviado' : 'fallido',
       fecha_creacion: fechaCreacion,
       fecha_envio: result.success ? new Date().toISOString() : null,
-      error_mensaje: result.success ? null : (result.error || 'Error desconocido'),
+      error_mensaje: result.success
+        ? null
+        : result.error || 'Error desconocido',
     });
 
     return result;

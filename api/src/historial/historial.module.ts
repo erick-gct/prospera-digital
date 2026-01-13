@@ -8,4 +8,4 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [HistorialController],
   providers: [HistorialService],
 })
-export class HistorialModule { }
+export class HistorialModule {}

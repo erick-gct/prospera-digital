@@ -9,8 +9,10 @@ export class StorageService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
-    
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
@@ -30,7 +32,9 @@ export class StorageService {
 
     if (error) {
       console.error('Error subiendo archivo:', error);
-      throw new InternalServerErrorException(`No se pudo subir el archivo: ${error.message}`);
+      throw new InternalServerErrorException(
+        `No se pudo subir el archivo: ${error.message}`,
+      );
     }
 
     // 3. Obtener URL Pública

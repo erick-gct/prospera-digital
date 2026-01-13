@@ -50,13 +50,17 @@ export async function updateSession(request: NextRequest) {
     "/pacientes", 
     "/agenda", 
     "/historial",
-    "/gestion-citas"
+    "/gestion-citas",
+    // Rutas de Admin
+    "/admin-usuarios",
+    "/admin-auditoria",
+    "/admin-citas",
   ];
   
   // 2. Rutas solo para NO logueados (Login/Registro)
   const authPaths = ["/login", "/register"];
   
-  // 3. Rutas EXCLUSIVAS de Podólogo (Admin)
+  // 3. Rutas EXCLUSIVAS de Podólogo
   const podiatristPaths = [
     "/pacientes", 
     "/agenda", 
@@ -64,9 +68,17 @@ export async function updateSession(request: NextRequest) {
     "/historial"
   ];
 
+  // 4. Rutas EXCLUSIVAS de Administrador
+  const adminPaths = [
+    "/admin-usuarios",
+    "/admin-auditoria",
+    "/admin-citas",
+  ];
+
   const isProtectedRoute = protectedPaths.some((p) => path.startsWith(p));
   const isAuthRoute = authPaths.some((p) => path.startsWith(p));
   const isPodiatristRoute = podiatristPaths.some((p) => path.startsWith(p));
+  const isAdminRoute = adminPaths.some((p) => path.startsWith(p));
 
   // --- REGLAS DE SEGURIDAD ---
 
@@ -82,16 +94,54 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // C. PROTECCIÓN DE ROL: Validación por Metadata
-  // Si un usuario intenta entrar a rutas de Podólogo...
-  if (user && isPodiatristRoute) {
-    // Leemos el rol directamente de la metadata de Supabase
-    // (Esto funciona porque ya actualizaste el usuario en la BD con el SQL)
-    const userRole = user.user_metadata?.role;
+  // C. PROTECCIÓN DE ROL: Validación consultando la base de datos
+  if (user) {
+    let userRole = 'PACIENTE'; // Default
 
-    // Si NO es PODOLOGO, lo expulsamos al dashboard general
-    if (userRole !== 'PODOLOGO') {
+    // Verificar si es administrador
+    const { data: admin } = await supabase
+      .from('administrador')
+      .select('usuario_id')
+      .eq('usuario_id', user.id)
+      .maybeSingle();
+
+    if (admin) {
+      userRole = 'ADMINISTRADOR';
+    } else {
+      // Verificar si es podólogo
+      const { data: podologo } = await supabase
+        .from('podologo')
+        .select('usuario_id')
+        .eq('usuario_id', user.id)
+        .maybeSingle();
+
+      if (podologo) {
+        userRole = 'PODOLOGO';
+      }
+    }
+
+    console.log(`[Middleware] Usuario: ${user.email}, Rol: ${userRole}, Ruta: ${path}`);
+
+    // Si un usuario intenta entrar a rutas de Podólogo...
+    if (isPodiatristRoute && userRole !== 'PODOLOGO') {
       console.warn(`Acceso denegado a ${path}. Rol detectado: ${userRole}`);
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    // Si un usuario intenta entrar a rutas de Admin...
+    if (isAdminRoute && userRole !== 'ADMINISTRADOR') {
+      console.warn(`Acceso denegado a ${path}. Rol detectado: ${userRole}`);
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    // Si un admin intenta entrar a rutas de paciente que no le aplican...
+    const patientOnlyPaths = ["/reserva-cita", "/mis-citas"];
+    const isPatientOnlyRoute = patientOnlyPaths.some((p) => path.startsWith(p));
+    
+    if (isPatientOnlyRoute && userRole !== 'PACIENTE') {
+      console.warn(`Ruta solo para pacientes: ${path}. Rol detectado: ${userRole}`);
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }

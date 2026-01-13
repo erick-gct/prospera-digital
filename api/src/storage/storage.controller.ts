@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Post, 
-  UploadedFile, 
-  UseInterceptors, 
-  ParseFilePipe, 
-  MaxFileSizeValidator, 
-  FileTypeValidator 
+import {
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StorageService } from './storage.service';
@@ -27,7 +27,7 @@ export class StorageController {
     )
     file: Express.Multer.File,
   ) {
-    // Por defecto lo guardamos en la carpeta 'general', 
+    // Por defecto lo guardamos en la carpeta 'general',
     // pero podrías recibir la carpeta por Body si quisieras.
     return this.storageService.uploadFile(file, 'general');
   }

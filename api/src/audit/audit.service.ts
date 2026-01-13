@@ -8,7 +8,9 @@ export class AuditService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
 
@@ -35,7 +37,9 @@ export class AuditService {
         .single();
 
       if (!podologo) {
-        throw new UnauthorizedException('Solo podólogos pueden acceder a auditoría');
+        throw new UnauthorizedException(
+          'Solo podólogos pueden acceder a auditoría',
+        );
       }
 
       return { success: true, message: 'Contraseña verificada' };
@@ -164,7 +168,9 @@ export class AuditService {
     }
 
     // Obtener tablas únicas
-    const uniqueTables = [...new Set((data || []).map((d) => d.tabla_afectada))];
+    const uniqueTables = [
+      ...new Set((data || []).map((d) => d.tabla_afectada)),
+    ];
 
     // Mapear a nombres amigables
     const tableLabels: Record<string, string> = {

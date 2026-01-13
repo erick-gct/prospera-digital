@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsDateString, IsUUID, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsUUID,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateAppointmentDto {
   // El frontend envía la fecha y hora combinadas en formato ISO

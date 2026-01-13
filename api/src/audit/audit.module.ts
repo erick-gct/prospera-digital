@@ -7,4 +7,4 @@ import { AuditService } from './audit.service';
   providers: [AuditService],
   exports: [AuditService],
 })
-export class AuditModule { }
+export class AuditModule {}

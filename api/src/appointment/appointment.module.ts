@@ -10,4 +10,4 @@ import { StorageModule } from '../storage/storage.module';
   controllers: [AppointmentController],
   providers: [AppointmentService],
 })
-export class AppointmentModule { }
+export class AppointmentModule {}

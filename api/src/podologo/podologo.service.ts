@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { UpdatePodologoDto } from './dto/update-podologo.dto';
@@ -9,7 +13,9 @@ export class PodologoService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
@@ -20,22 +26,28 @@ export class PodologoService {
       .select('usuario_id, nombres, apellidos')
       .order('apellidos', { ascending: true });
 
-    if (error) throw new InternalServerErrorException(`Error al obtener podólogos: ${error.message}`);
+    if (error)
+      throw new InternalServerErrorException(
+        `Error al obtener podólogos: ${error.message}`,
+      );
     return data || [];
   }
 
   async findOne(id: string) {
     const { data, error } = await this.supabase
       .from('podologo')
-      .select(`
+      .select(
+        `
         *,
         paises (nombre),
         tipos_sangre (nombre)
-      `)
+      `,
+      )
       .eq('usuario_id', id)
       .single();
 
-    if (error || !data) throw new NotFoundException(`Podólogo con ID ${id} no encontrado`);
+    if (error || !data)
+      throw new NotFoundException(`Podólogo con ID ${id} no encontrado`);
     return data;
   }
 
@@ -48,7 +60,11 @@ export class PodologoService {
     };
 
     // Limpiar undefined
-    Object.keys(updates).forEach(key => updates[key as keyof typeof updates] === undefined && delete updates[key as keyof typeof updates]);
+    Object.keys(updates).forEach(
+      (key) =>
+        updates[key as keyof typeof updates] === undefined &&
+        delete updates[key as keyof typeof updates],
+    );
 
     const { data, error } = await this.supabase
       .from('podologo')
@@ -57,7 +73,10 @@ export class PodologoService {
       .select()
       .single();
 
-    if (error) throw new InternalServerErrorException(`Error actualizando podólogo: ${error.message}`);
+    if (error)
+      throw new InternalServerErrorException(
+        `Error actualizando podólogo: ${error.message}`,
+      );
     return data;
   }
 }

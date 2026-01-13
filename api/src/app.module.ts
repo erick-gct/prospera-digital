@@ -13,6 +13,7 @@ import { HistorialModule } from './historial/historial.module';
 import { RecetaModule } from './receta/receta.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuditModule } from './audit/audit.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -30,8 +31,9 @@ import { AuditModule } from './audit/audit.module';
     RecetaModule,
     DashboardModule,
     AuditModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

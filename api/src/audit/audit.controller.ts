@@ -3,7 +3,7 @@ import { AuditService } from './audit.service';
 
 @Controller('audit')
 export class AuditController {
-  constructor(private readonly auditService: AuditService) { }
+  constructor(private readonly auditService: AuditService) {}
 
   /**
    * Verificar contraseña del usuario
@@ -17,10 +17,7 @@ export class AuditController {
    * Obtener logs de auditoría filtrados por tabla
    */
   @Get('logs')
-  getAuditLogs(
-    @Query('table') table?: string,
-    @Query('limit') limit?: string,
-  ) {
+  getAuditLogs(@Query('table') table?: string, @Query('limit') limit?: string) {
     return this.auditService.getAuditLogs(
       table,
       limit ? parseInt(limit, 10) : 100,

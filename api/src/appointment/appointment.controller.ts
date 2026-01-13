@@ -1,4 +1,18 @@
-import { Controller, Post, Get, Patch, Delete, Body, Query, Param, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  Query,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -10,7 +24,7 @@ export class AppointmentController {
   constructor(
     private readonly appointmentService: AppointmentService,
     private readonly storageService: StorageService,
-  ) { }
+  ) {}
 
   @Post()
   create(@Body() createAppointmentDto: CreateAppointmentDto) {
@@ -23,7 +37,11 @@ export class AppointmentController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.appointmentService.findByPodologo(podologoId, startDate, endDate);
+    return this.appointmentService.findByPodologo(
+      podologoId,
+      startDate,
+      endDate,
+    );
   }
 
   @Get('by-date')
@@ -44,14 +62,14 @@ export class AppointmentController {
     @Param('id') id: string,
     @Body() updateDto: UpdateAppointmentDetailDto,
   ) {
-    return this.appointmentService.updateAppointmentDetail(parseInt(id, 10), updateDto);
+    return this.appointmentService.updateAppointmentDetail(
+      parseInt(id, 10),
+      updateDto,
+    );
   }
 
   @Patch(':id/status')
-  updateStatus(
-    @Param('id') id: string,
-    @Body('estadoId') estadoId: number,
-  ) {
+  updateStatus(@Param('id') id: string, @Body('estadoId') estadoId: number) {
     return this.appointmentService.updateStatus(parseInt(id, 10), estadoId);
   }
 
@@ -85,7 +103,10 @@ export class AppointmentController {
     file: Express.Multer.File,
   ) {
     // 1. Subir archivo a Supabase Storage
-    const uploadResult = await this.storageService.uploadFile(file, `citas/${id}`);
+    const uploadResult = await this.storageService.uploadFile(
+      file,
+      `citas/${id}`,
+    );
 
     // 2. Guardar referencia en documentos_clinicos
     return this.appointmentService.uploadDocument(parseInt(id, 10), {

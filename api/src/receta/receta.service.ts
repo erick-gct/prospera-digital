@@ -1,7 +1,11 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ConfigService } from '@nestjs/config';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const PDFDocument = require('pdfkit');
 import * as path from 'path';
 import * as fs from 'fs';
@@ -12,7 +16,9 @@ export class RecetaService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
 
@@ -23,12 +29,14 @@ export class RecetaService {
     // 1. Obtener datos de la receta
     const { data: receta, error: recetaError } = await this.supabase
       .from('receta')
-      .select(`
+      .select(
+        `
         id,
         fecha_emision,
         diagnostico_receta,
         cita_id
-      `)
+      `,
+      )
       .eq('id', recetaId)
       .single();
 
@@ -45,10 +53,12 @@ export class RecetaService {
     // 3. Obtener datos de la cita (paciente y podólogo)
     const { data: cita } = await this.supabase
       .from('cita')
-      .select(`
+      .select(
+        `
         paciente_id,
         podologo_id
-      `)
+      `,
+      )
       .eq('id', receta.cita_id)
       .single();
 
@@ -84,7 +94,7 @@ export class RecetaService {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({
         margin: 50,
-        size: 'A4'
+        size: 'A4',
       });
 
       const chunks: Buffer[] = [];
@@ -96,7 +106,15 @@ export class RecetaService {
       const grayColor = '#6B7280';
 
       // Logo path (intentar cargar si existe)
-      const logoPath = path.join(process.cwd(), '..', 'client', 'public', 'assets', 'logo', 'logo-completo.png');
+      const logoPath = path.join(
+        process.cwd(),
+        '..',
+        'client',
+        'public',
+        'assets',
+        'logo',
+        'logo-completo.png',
+      );
 
       // Header con logo
       try {
@@ -109,10 +127,12 @@ export class RecetaService {
       }
 
       // Título del consultorio
-      doc.fontSize(20)
+      doc
+        .fontSize(20)
         .fillColor(primaryColor)
         .text('PROSPERA DIGITAL', 140, 50, { align: 'left' });
-      doc.fontSize(12)
+      doc
+        .fontSize(12)
         .fillColor(grayColor)
         .text('Podología Especializada', 140, 75, { align: 'left' });
 
@@ -120,7 +140,8 @@ export class RecetaService {
       doc.moveTo(50, 110).lineTo(545, 110).stroke(primaryColor);
 
       // Título de receta
-      doc.fontSize(18)
+      doc
+        .fontSize(18)
         .fillColor('#000')
         .text('RECETA MÉDICA', 50, 130, { align: 'center' });
 
@@ -132,22 +153,32 @@ export class RecetaService {
       const yPaciente = 180;
 
       doc.fillColor(grayColor).text('Paciente:', 50, yPaciente);
-      doc.fillColor('#000').text(
-        `${data.paciente?.nombres || ''} ${data.paciente?.apellidos || ''}`.trim() || 'No especificado',
-        120, yPaciente
-      );
+      doc
+        .fillColor('#000')
+        .text(
+          `${data.paciente?.nombres || ''} ${data.paciente?.apellidos || ''}`.trim() ||
+            'No especificado',
+          120,
+          yPaciente,
+        );
 
       doc.fillColor(grayColor).text('Cédula:', 50, yPaciente + 20);
-      doc.fillColor('#000').text(data.paciente?.cedula || 'No especificada', 120, yPaciente + 20);
+      doc
+        .fillColor('#000')
+        .text(data.paciente?.cedula || 'No especificada', 120, yPaciente + 20);
 
       doc.fillColor(grayColor).text('Fecha:', 350, yPaciente);
       const fechaFormateada = data.receta.fecha_emision
         ? new Date(data.receta.fecha_emision).toLocaleDateString('es-ES', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        })
-        : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })
+        : new Date().toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
       doc.fillColor('#000').text(fechaFormateada, 400, yPaciente);
 
       // Línea separadora
@@ -155,10 +186,9 @@ export class RecetaService {
 
       // Diagnóstico
       if (data.receta.diagnostico_receta) {
-        doc.fontSize(12)
-          .fillColor(primaryColor)
-          .text('DIAGNÓSTICO:', 50, 250);
-        doc.fontSize(11)
+        doc.fontSize(12).fillColor(primaryColor).text('DIAGNÓSTICO:', 50, 250);
+        doc
+          .fontSize(11)
           .fillColor('#000')
           .text(data.receta.diagnostico_receta, 50, 270, { width: 495 });
       }
@@ -166,14 +196,13 @@ export class RecetaService {
       // Medicamentos
       let yMeds = data.receta.diagnostico_receta ? 320 : 260;
 
-      doc.fontSize(12)
-        .fillColor(primaryColor)
-        .text('MEDICAMENTOS:', 50, yMeds);
+      doc.fontSize(12).fillColor(primaryColor).text('MEDICAMENTOS:', 50, yMeds);
 
       yMeds += 25;
 
       if (data.medicamentos.length === 0) {
-        doc.fontSize(11)
+        doc
+          .fontSize(11)
           .fillColor(grayColor)
           .text('No hay medicamentos registrados', 50, yMeds);
       } else {
@@ -191,9 +220,21 @@ export class RecetaService {
         // Textos del header
         doc.fillColor('#000');
         doc.text('N°', tableLeft + 5, yMeds + 7, { width: colWidths.num });
-        doc.text('Medicamento', tableLeft + colWidths.num + 5, yMeds + 7, { width: colWidths.med });
-        doc.text('Dosis', tableLeft + colWidths.num + colWidths.med + 5, yMeds + 7, { width: colWidths.dosis });
-        doc.text('Indicaciones', tableLeft + colWidths.num + colWidths.med + colWidths.dosis + 5, yMeds + 7, { width: colWidths.indic });
+        doc.text('Medicamento', tableLeft + colWidths.num + 5, yMeds + 7, {
+          width: colWidths.med,
+        });
+        doc.text(
+          'Dosis',
+          tableLeft + colWidths.num + colWidths.med + 5,
+          yMeds + 7,
+          { width: colWidths.dosis },
+        );
+        doc.text(
+          'Indicaciones',
+          tableLeft + colWidths.num + colWidths.med + colWidths.dosis + 5,
+          yMeds + 7,
+          { width: colWidths.indic },
+        );
 
         yMeds += rowHeight;
 
@@ -215,10 +256,27 @@ export class RecetaService {
 
           // Contenido de celdas
           doc.fillColor('#000');
-          doc.text(`${index + 1}`, tableLeft + 5, yMeds + 8, { width: colWidths.num });
-          doc.text(med.medicamento || '-', tableLeft + colWidths.num + 5, yMeds + 8, { width: colWidths.med - 10 });
-          doc.text(med.dosis || '-', tableLeft + colWidths.num + colWidths.med + 5, yMeds + 8, { width: colWidths.dosis - 10 });
-          doc.text(med.indicaciones || '-', tableLeft + colWidths.num + colWidths.med + colWidths.dosis + 5, yMeds + 8, { width: colWidths.indic - 10 });
+          doc.text(`${index + 1}`, tableLeft + 5, yMeds + 8, {
+            width: colWidths.num,
+          });
+          doc.text(
+            med.medicamento || '-',
+            tableLeft + colWidths.num + 5,
+            yMeds + 8,
+            { width: colWidths.med - 10 },
+          );
+          doc.text(
+            med.dosis || '-',
+            tableLeft + colWidths.num + colWidths.med + 5,
+            yMeds + 8,
+            { width: colWidths.dosis - 10 },
+          );
+          doc.text(
+            med.indicaciones || '-',
+            tableLeft + colWidths.num + colWidths.med + colWidths.dosis + 5,
+            yMeds + 8,
+            { width: colWidths.indic - 10 },
+          );
 
           yMeds += rowHeight;
         });
@@ -228,7 +286,8 @@ export class RecetaService {
       const yFirma = Math.max(yMeds + 50, 550);
 
       doc.moveTo(350, yFirma).lineTo(530, yFirma).stroke('#000');
-      doc.fontSize(10)
+      doc
+        .fontSize(10)
         .fillColor('#000')
         .font('Helvetica')
         .text('Firma del Especialista', 380, yFirma + 5);
@@ -239,9 +298,12 @@ export class RecetaService {
       doc.text(nombrePodologo, 380, yFirma + 18, { align: 'left' });
 
       // Footer
-      doc.fontSize(8)
+      doc
+        .fontSize(8)
         .fillColor(grayColor)
-        .text('© Prospera Digital - Todos los derechos reservados', 50, 780, { align: 'center' });
+        .text('© Prospera Digital - Todos los derechos reservados', 50, 780, {
+          align: 'center',
+        });
 
       doc.end();
     });

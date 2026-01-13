@@ -3,7 +3,7 @@ import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) { }
+  constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('patient/:userId')
   getPatientDashboard(@Param('userId') userId: string) {

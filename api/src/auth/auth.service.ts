@@ -46,38 +46,59 @@ export class AuthService {
     const userId = data.user.id;
     let role = 'DESCONOCIDO';
 
-    // A. ¿Es Podólogo?
-    const { data: podologo } = await this.supabase
-      .from('podologo')
+    console.log(`(API) Buscando rol para userId: ${userId}`);
+
+    // A. ¿Es Administrador?
+    const { data: admin, error: adminError } = await this.supabase
+      .from('administrador')
       .select('usuario_id')
       .eq('usuario_id', userId)
       .maybeSingle();
 
-    if (podologo) {
-      role = 'PODOLOGO';
+    console.log(`(API) Resultado admin:`, admin, `Error:`, adminError);
+
+    if (admin) {
+      role = 'ADMINISTRADOR';
+      console.log(`(API) Usuario identificado como ADMINISTRADOR`);
     } else {
-      // B. ¿Es Paciente?
-      const { data: paciente } = await this.supabase
-        .from('paciente')
-        .select('usuario_id, estado_paciente_id')
+      // B. ¿Es Podólogo?
+      const { data: podologo, error: podologoError } = await this.supabase
+        .from('podologo')
+        .select('usuario_id')
         .eq('usuario_id', userId)
         .maybeSingle();
 
-      if (paciente) {
-        // --- VALIDACIÓN DE ESTADO ---
-        // Si el estado es 1 = Activo. Si es diferente, bloqueamos.
-        if (paciente.estado_paciente_id !== 1) {
-          console.warn(
-            `(API) Usuario ${email} intentó entrar pero está INACTIVO (Estado: ${paciente.estado_paciente_id})`,
-          );
-          // Opcional: Cerrar la sesión que acabamos de abrir en Supabase para no dejar "cabos sueltos"
-          await this.supabase.auth.signOut();
+      console.log(`(API) Resultado podologo:`, podologo, `Error:`, podologoError);
 
-          throw new ForbiddenException(
-            'Tu cuenta está inactiva o suspendida. Por favor contacta al consultorio.',
-          );
+      if (podologo) {
+        role = 'PODOLOGO';
+        console.log(`(API) Usuario identificado como PODOLOGO`);
+      } else {
+        // C. ¿Es Paciente?
+        const { data: paciente, error: pacienteError } = await this.supabase
+          .from('paciente')
+          .select('usuario_id, estado_paciente_id')
+          .eq('usuario_id', userId)
+          .maybeSingle();
+
+        console.log(`(API) Resultado paciente:`, paciente, `Error:`, pacienteError);
+
+        if (paciente) {
+          // --- VALIDACIÓN DE ESTADO ---
+          // Si el estado es 1 = Activo. Si es diferente, bloqueamos.
+          if (paciente.estado_paciente_id !== 1) {
+            console.warn(
+              `(API) Usuario ${email} intentó entrar pero está INACTIVO (Estado: ${paciente.estado_paciente_id})`,
+            );
+            // Opcional: Cerrar la sesión que acabamos de abrir en Supabase para no dejar "cabos sueltos"
+            await this.supabase.auth.signOut();
+
+            throw new ForbiddenException(
+              'Tu cuenta está inactiva o suspendida. Por favor contacta al consultorio.',
+            );
+          }
+          role = 'PACIENTE';
         }
-        role = 'PACIENTE';
       }
     }
 
@@ -182,7 +203,7 @@ export class AuthService {
       }
 
       throw new InternalServerErrorException(
-        `Error al crear perfil de paciente: ${dbError.message}`
+        `Error al crear perfil de paciente: ${dbError.message}`,
       );
     }
 
@@ -197,7 +218,10 @@ export class AuthService {
   /**
    * Registrar logout en historial_acceso
    */
-  async logLogout(userId: string, email: string): Promise<{ success: boolean }> {
+  async logLogout(
+    userId: string,
+    email: string,
+  ): Promise<{ success: boolean }> {
     console.log(`(API) Registrando logout para: ${email}`);
 
     const { error } = await this.supabase.from('historial_acceso').insert({

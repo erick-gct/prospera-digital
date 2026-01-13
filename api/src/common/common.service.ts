@@ -21,7 +21,7 @@ export class CommonService {
       .select('id, nombre')
       .order('nombre', { ascending: true });
 
-     if (error) {
+    if (error) {
       console.error('Error obteniendo paises:', error);
       throw new InternalServerErrorException(error.message);
     }

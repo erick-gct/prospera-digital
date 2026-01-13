@@ -2,7 +2,7 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
-  NotFoundException
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -16,10 +16,12 @@ export class AppointmentService {
 
   constructor(
     private configService: ConfigService,
-    private mailService: MailService
+    private mailService: MailService,
   ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
@@ -39,10 +41,15 @@ export class AppointmentService {
       .eq('fecha_hora_inicio', createAppointmentDto.fechaHoraInicio)
       .neq('estado_id', 3); // No contamos las canceladas
 
-    if (checkError) throw new InternalServerErrorException('Error verificando disponibilidad.');
+    if (checkError)
+      throw new InternalServerErrorException(
+        'Error verificando disponibilidad.',
+      );
 
     if (citasExistentes && citasExistentes.length > 0) {
-      throw new BadRequestException('Ya existe una cita reservada para esta fecha y hora.');
+      throw new BadRequestException(
+        'Ya existe una cita reservada para esta fecha y hora.',
+      );
     }
 
     // 3. INSERTAR CITA EN BASE DE DATOS
@@ -63,9 +70,13 @@ export class AppointmentService {
     if (insertError) {
       // Detectar error de unique constraint (doble booking a nivel de BD)
       if (insertError.code === '23505') {
-        throw new BadRequestException('Ya existe una cita reservada para esta fecha y hora. Por favor, selecciona otro horario.');
+        throw new BadRequestException(
+          'Ya existe una cita reservada para esta fecha y hora. Por favor, selecciona otro horario.',
+        );
       }
-      throw new InternalServerErrorException(`Error al reservar la cita: ${insertError.message}`);
+      throw new InternalServerErrorException(
+        `Error al reservar la cita: ${insertError.message}`,
+      );
     }
 
     // 4. NOTIFICACIÓN POR CORREO (Subsistema)
@@ -84,7 +95,9 @@ export class AppointmentService {
       .single();
 
     // 4.1 REGISTRAR AUDITORÍA (con nombre del usuario)
-    const nombrePaciente = paciente ? `${paciente.nombres} ${paciente.apellidos}` : null;
+    const nombrePaciente = paciente
+      ? `${paciente.nombres} ${paciente.apellidos}`
+      : null;
     await logAuditEvent(this.supabase, {
       tabla: 'cita',
       registroId: nuevaCita.id,
@@ -95,9 +108,19 @@ export class AppointmentService {
     });
 
     if (paciente && paciente.email) {
-      const fechaFormateada = fechaCita.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const horaFormateada = fechaCita.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
+      const fechaFormateada = fechaCita.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const horaFormateada = fechaCita.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const nombrePodologo = podologo
+        ? `Dr. ${podologo.nombres} ${podologo.apellidos}`
+        : 'Especialista asignado';
 
       // Enviar correo de confirmación
       await this.mailService.sendAppointmentConfirmation(
@@ -107,7 +130,7 @@ export class AppointmentService {
         horaFormateada,
         nombrePodologo,
         nuevaCita.id,
-        createAppointmentDto.userId
+        createAppointmentDto.userId,
       );
     }
 
@@ -117,11 +140,17 @@ export class AppointmentService {
   /**
    * Obtener citas de un podólogo con filtro de rango de fechas
    */
-  async findByPodologo(podologoId: string, startDate?: string, endDate?: string) {
+  async findByPodologo(
+    podologoId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
     // 1. Query simple para obtener las citas
     let query = this.supabase
       .from('cita')
-      .select('id, fecha_hora_inicio, motivo_cita, observaciones_paciente, estado_id, paciente_id')
+      .select(
+        'id, fecha_hora_inicio, motivo_cita, observaciones_paciente, estado_id, paciente_id',
+      )
       .eq('podologo_id', podologoId)
       .order('fecha_hora_inicio', { ascending: true });
 
@@ -135,7 +164,9 @@ export class AppointmentService {
     const { data: citas, error } = await query;
 
     if (error) {
-      throw new InternalServerErrorException(`Error al obtener citas: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error al obtener citas: ${error.message}`,
+      );
     }
 
     if (!citas || citas.length === 0) {
@@ -143,8 +174,12 @@ export class AppointmentService {
     }
 
     // 2. Obtener IDs únicos de pacientes y estados
-    const pacienteIds = [...new Set(citas.map(c => c.paciente_id).filter(Boolean))];
-    const estadoIds = [...new Set(citas.map(c => c.estado_id).filter(Boolean))];
+    const pacienteIds = [
+      ...new Set(citas.map((c) => c.paciente_id).filter(Boolean)),
+    ];
+    const estadoIds = [
+      ...new Set(citas.map((c) => c.estado_id).filter(Boolean)),
+    ];
 
     // 3. Query para pacientes
     const { data: pacientes } = await this.supabase
@@ -159,11 +194,11 @@ export class AppointmentService {
       .in('id', estadoIds);
 
     // 5. Crear mapas para lookup rápido
-    const pacienteMap = new Map(pacientes?.map(p => [p.usuario_id, p]) || []);
-    const estadoMap = new Map(estados?.map(e => [e.id, e]) || []);
+    const pacienteMap = new Map(pacientes?.map((p) => [p.usuario_id, p]) || []);
+    const estadoMap = new Map(estados?.map((e) => [e.id, e]) || []);
 
     // 6. Enriquecer las citas con datos de paciente y estado
-    const citasEnriquecidas = citas.map(cita => ({
+    const citasEnriquecidas = citas.map((cita) => ({
       id: cita.id,
       fecha_hora_inicio: cita.fecha_hora_inicio,
       motivo_cita: cita.motivo_cita,
@@ -187,14 +222,18 @@ export class AppointmentService {
     // 1. Query para obtener citas del día
     const { data: citas, error } = await this.supabase
       .from('cita')
-      .select('id, fecha_hora_inicio, motivo_cita, observaciones_paciente, observaciones_podologo, procedimientos_realizados, estado_id, paciente_id')
+      .select(
+        'id, fecha_hora_inicio, motivo_cita, observaciones_paciente, observaciones_podologo, procedimientos_realizados, estado_id, paciente_id',
+      )
       .eq('podologo_id', podologoId)
       .gte('fecha_hora_inicio', startOfDay)
       .lte('fecha_hora_inicio', endOfDay)
       .order('fecha_hora_inicio', { ascending: true });
 
     if (error) {
-      throw new InternalServerErrorException(`Error al obtener citas: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error al obtener citas: ${error.message}`,
+      );
     }
 
     if (!citas || citas.length === 0) {
@@ -202,12 +241,18 @@ export class AppointmentService {
     }
 
     // 2. Obtener datos de pacientes
-    const pacienteIds = [...new Set(citas.map(c => c.paciente_id).filter(Boolean))];
-    const estadoIds = [...new Set(citas.map(c => c.estado_id).filter(Boolean))];
+    const pacienteIds = [
+      ...new Set(citas.map((c) => c.paciente_id).filter(Boolean)),
+    ];
+    const estadoIds = [
+      ...new Set(citas.map((c) => c.estado_id).filter(Boolean)),
+    ];
 
     const { data: pacientes } = await this.supabase
       .from('paciente')
-      .select('usuario_id, nombres, apellidos, cedula, telefono, email, fecha_nacimiento')
+      .select(
+        'usuario_id, nombres, apellidos, cedula, telefono, email, fecha_nacimiento',
+      )
       .in('usuario_id', pacienteIds);
 
     const { data: estados } = await this.supabase
@@ -216,11 +261,11 @@ export class AppointmentService {
       .in('id', estadoIds);
 
     // 3. Mapas para lookup
-    const pacienteMap = new Map(pacientes?.map(p => [p.usuario_id, p]) || []);
-    const estadoMap = new Map(estados?.map(e => [e.id, e]) || []);
+    const pacienteMap = new Map(pacientes?.map((p) => [p.usuario_id, p]) || []);
+    const estadoMap = new Map(estados?.map((e) => [e.id, e]) || []);
 
     // 4. Enriquecer citas
-    const citasEnriquecidas = citas.map(cita => ({
+    const citasEnriquecidas = citas.map((cita) => ({
       id: cita.id,
       fecha_hora_inicio: cita.fecha_hora_inicio,
       motivo_cita: cita.motivo_cita,
@@ -313,7 +358,9 @@ export class AppointmentService {
     }
 
     if (cita.estado_id === 2) {
-      throw new BadRequestException('No se puede modificar una cita completada');
+      throw new BadRequestException(
+        'No se puede modificar una cita completada',
+      );
     }
 
     // Obtener nombre del podólogo para auditoría
@@ -322,7 +369,9 @@ export class AppointmentService {
       .select('nombres, apellidos')
       .eq('usuario_id', cita.podologo_id)
       .single();
-    const nombrePodologo = podologoData ? `${podologoData.nombres} ${podologoData.apellidos}` : null;
+    const nombrePodologo = podologoData
+      ? `${podologoData.nombres} ${podologoData.apellidos}`
+      : null;
 
     const now = new Date().toISOString();
 
@@ -337,7 +386,9 @@ export class AppointmentService {
       .eq('id', citaId);
 
     if (updateCitaError) {
-      throw new InternalServerErrorException(`Error actualizando cita: ${updateCitaError.message}`);
+      throw new InternalServerErrorException(
+        `Error actualizando cita: ${updateCitaError.message}`,
+      );
     }
 
     // Auditoría: Actualización de observaciones de cita
@@ -382,7 +433,10 @@ export class AppointmentService {
           .from('ficha_evaluacion')
           .update(evaluacionData)
           .eq('cita_id', citaId);
-        if (error) throw new InternalServerErrorException(`Error actualizando evaluación: ${error.message}`);
+        if (error)
+          throw new InternalServerErrorException(
+            `Error actualizando evaluación: ${error.message}`,
+          );
 
         // Auditoría: Actualización de evaluación del pie
         await logAuditEvent(this.supabase, {
@@ -400,7 +454,10 @@ export class AppointmentService {
           .insert({ ...evaluacionData, fecha_creacion: now })
           .select('id')
           .single();
-        if (error) throw new InternalServerErrorException(`Error creando evaluación: ${error.message}`);
+        if (error)
+          throw new InternalServerErrorException(
+            `Error creando evaluación: ${error.message}`,
+          );
 
         // Auditoría: Creación de evaluación del pie
         if (newEval) {
@@ -442,7 +499,10 @@ export class AppointmentService {
           .from('gestion_ortesis')
           .update(ortesisData)
           .eq('cita_id', citaId);
-        if (error) throw new InternalServerErrorException(`Error actualizando ortesis: ${error.message}`);
+        if (error)
+          throw new InternalServerErrorException(
+            `Error actualizando ortesis: ${error.message}`,
+          );
 
         // Auditoría: Actualización de órtesis
         await logAuditEvent(this.supabase, {
@@ -460,7 +520,10 @@ export class AppointmentService {
           .insert({ ...ortesisData, fecha_creacion: now })
           .select('id')
           .single();
-        if (error) throw new InternalServerErrorException(`Error creando ortesis: ${error.message}`);
+        if (error)
+          throw new InternalServerErrorException(
+            `Error creando ortesis: ${error.message}`,
+          );
 
         // Auditoría: Creación de órtesis
         if (newOrtesis) {
@@ -493,7 +556,9 @@ export class AppointmentService {
             .single();
 
           if (recetaError || !newReceta) {
-            throw new InternalServerErrorException(`Error creando receta: ${recetaError?.message}`);
+            throw new InternalServerErrorException(
+              `Error creando receta: ${recetaError?.message}`,
+            );
           }
 
           // Auditoría: Creación de receta
@@ -503,7 +568,10 @@ export class AppointmentService {
             accion: 'INSERT',
             usuarioId: cita.podologo_id,
             usuarioNombre: nombrePodologo,
-            datosNuevos: { cita_id: citaId, medicamentos: receta.medicamentos.length },
+            datosNuevos: {
+              cita_id: citaId,
+              medicamentos: receta.medicamentos.length,
+            },
           });
 
           // Insertar detalles de receta
@@ -514,13 +582,16 @@ export class AppointmentService {
             indicaciones: med.indicaciones || null,
           }));
 
-          const { data: insertedDetalles, error: detallesError } = await this.supabase
-            .from('detalles_receta')
-            .insert(detalles)
-            .select('id');
+          const { data: insertedDetalles, error: detallesError } =
+            await this.supabase
+              .from('detalles_receta')
+              .insert(detalles)
+              .select('id');
 
           if (detallesError) {
-            throw new InternalServerErrorException(`Error creando detalles de receta: ${detallesError.message}`);
+            throw new InternalServerErrorException(
+              `Error creando detalles de receta: ${detallesError.message}`,
+            );
           }
 
           // Auditoría: Creación de detalles de receta (agrupados)
@@ -574,7 +645,9 @@ export class AppointmentService {
       .eq('id', citaId);
 
     if (updateError) {
-      throw new InternalServerErrorException(`Error actualizando estado: ${updateError.message}`);
+      throw new InternalServerErrorException(
+        `Error actualizando estado: ${updateError.message}`,
+      );
     }
 
     // Obtener nombre del usuario que hace el cambio para auditoría
@@ -586,7 +659,9 @@ export class AppointmentService {
         .select('nombres, apellidos')
         .eq('usuario_id', cita.paciente_id)
         .single();
-      usuarioNombre = pacienteData ? `${pacienteData.nombres} ${pacienteData.apellidos}` : null;
+      usuarioNombre = pacienteData
+        ? `${pacienteData.nombres} ${pacienteData.apellidos}`
+        : null;
     } else {
       // Podólogo actualizando
       const { data: podologoData } = await this.supabase
@@ -594,7 +669,9 @@ export class AppointmentService {
         .select('nombres, apellidos')
         .eq('usuario_id', cita.podologo_id)
         .single();
-      usuarioNombre = podologoData ? `${podologoData.nombres} ${podologoData.apellidos}` : null;
+      usuarioNombre = podologoData
+        ? `${podologoData.nombres} ${podologoData.apellidos}`
+        : null;
     }
 
     // Registrar auditoría
@@ -607,7 +684,6 @@ export class AppointmentService {
       datosAnteriores: { estado_id: cita.estado_id },
       datosNuevos: { estado_id: estadoId },
     });
-
 
     // Obtener nombre del estado
     const { data: estado } = await this.supabase
@@ -634,10 +710,20 @@ export class AppointmentService {
 
       if (paciente && paciente.email) {
         const fechaCita = new Date(cita.fecha_hora_inicio);
-        const fechaFormateada = fechaCita.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        const horaFormateada = fechaCita.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const fechaFormateada = fechaCita.toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const horaFormateada = fechaCita.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
         const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
-        const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
+        const nombrePodologo = podologo
+          ? `Dr. ${podologo.nombres} ${podologo.apellidos}`
+          : 'Especialista asignado';
 
         await this.mailService.sendAppointmentCancellation(
           paciente.email,
@@ -647,14 +733,14 @@ export class AppointmentService {
           nombrePodologo,
           null, // Sin motivo específico por ahora
           citaId,
-          cita.paciente_id
+          cita.paciente_id,
         );
       }
     }
 
     return {
       message: 'Estado actualizado correctamente',
-      nuevo_estado: estado?.nombre || 'Desconocido'
+      nuevo_estado: estado?.nombre || 'Desconocido',
     };
   }
 
@@ -675,7 +761,9 @@ export class AppointmentService {
 
     // Solo se puede reagendar citas en estado "Reservada" (1)
     if (cita.estado_id !== 1) {
-      throw new BadRequestException('Solo se pueden reagendar citas en estado Reservada');
+      throw new BadRequestException(
+        'Solo se pueden reagendar citas en estado Reservada',
+      );
     }
 
     // Guardar fecha anterior para el email
@@ -693,9 +781,13 @@ export class AppointmentService {
     if (updateError) {
       // Detectar error de unique constraint (doble booking)
       if (updateError.code === '23505') {
-        throw new BadRequestException('Ya existe una cita reservada para esa fecha y hora. Por favor, selecciona otro horario.');
+        throw new BadRequestException(
+          'Ya existe una cita reservada para esa fecha y hora. Por favor, selecciona otro horario.',
+        );
       }
-      throw new InternalServerErrorException(`Error reagendando cita: ${updateError.message}`);
+      throw new InternalServerErrorException(
+        `Error reagendando cita: ${updateError.message}`,
+      );
     }
 
     // Enviar email de reagendamiento
@@ -712,7 +804,9 @@ export class AppointmentService {
       .single();
 
     // Registrar auditoría (con nombre del usuario)
-    const nombrePaciente = paciente ? `${paciente.nombres} ${paciente.apellidos}` : null;
+    const nombrePaciente = paciente
+      ? `${paciente.nombres} ${paciente.apellidos}`
+      : null;
     await logAuditEvent(this.supabase, {
       tabla: 'cita',
       registroId: citaId,
@@ -725,12 +819,28 @@ export class AppointmentService {
 
     if (paciente && paciente.email) {
       const fechaNueva = new Date(nuevaFechaHora);
-      const fechaAnteriorFormateada = fechaAnterior.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const horaAnteriorFormateada = fechaAnterior.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      const fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const horaNuevaFormateada = fechaNueva.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const fechaAnteriorFormateada = fechaAnterior.toLocaleDateString(
+        'es-ES',
+        { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+      );
+      const horaAnteriorFormateada = fechaAnterior.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const horaNuevaFormateada = fechaNueva.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
       const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
-      const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista asignado';
+      const nombrePodologo = podologo
+        ? `Dr. ${podologo.nombres} ${podologo.apellidos}`
+        : 'Especialista asignado';
 
       await this.mailService.sendAppointmentReschedule(
         paciente.email,
@@ -741,20 +851,23 @@ export class AppointmentService {
         horaNuevaFormateada,
         nombrePodologo,
         citaId,
-        cita.paciente_id
+        cita.paciente_id,
       );
     }
 
     return {
       message: 'Cita reagendada correctamente',
-      nueva_fecha: nuevaFechaHora
+      nueva_fecha: nuevaFechaHora,
     };
   }
 
   /**
    * Subir un documento clínico para una cita
    */
-  async uploadDocument(citaId: number, fileData: { path: string; url: string; nombre: string; tipo: string }) {
+  async uploadDocument(
+    citaId: number,
+    fileData: { path: string; url: string; nombre: string; tipo: string },
+  ) {
     // Verificar que la cita existe
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
@@ -780,7 +893,9 @@ export class AppointmentService {
       .single();
 
     if (error) {
-      throw new InternalServerErrorException(`Error guardando documento: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error guardando documento: ${error.message}`,
+      );
     }
 
     return data;
@@ -792,12 +907,16 @@ export class AppointmentService {
   async getDocuments(citaId: number) {
     const { data, error } = await this.supabase
       .from('documentos_clinicos')
-      .select('id, url_almacenamiento, nombre_archivo, tipo_archivo, fecha_subida')
+      .select(
+        'id, url_almacenamiento, nombre_archivo, tipo_archivo, fecha_subida',
+      )
       .eq('cita_id', citaId)
       .order('fecha_subida', { ascending: false });
 
     if (error) {
-      throw new InternalServerErrorException(`Error obteniendo documentos: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error obteniendo documentos: ${error.message}`,
+      );
     }
 
     return data || [];
@@ -813,7 +932,9 @@ export class AppointmentService {
       .eq('id', documentId);
 
     if (error) {
-      throw new InternalServerErrorException(`Error eliminando documento: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error eliminando documento: ${error.message}`,
+      );
     }
 
     return { message: 'Documento eliminado correctamente' };

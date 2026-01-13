@@ -13,6 +13,6 @@ export class UpdatePatientDto {
   tipoSangreId?: number;
   enfermedades?: string;
 
-  // Nota: NO incluimos 'cedula' ni 'email' ni 'usuario_id' 
+  // Nota: NO incluimos 'cedula' ni 'email' ni 'usuario_id'
   // para que no puedan ser modificados a través de este endpoint.
 }

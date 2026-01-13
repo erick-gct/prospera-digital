@@ -8,7 +8,9 @@ export class HistorialService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
   }
 
@@ -18,7 +20,8 @@ export class HistorialService {
   async searchPatients(cedula: string, apellido: string) {
     let query = this.supabase
       .from('paciente')
-      .select(`
+      .select(
+        `
         usuario_id,
         cedula,
         nombres,
@@ -26,7 +29,8 @@ export class HistorialService {
         telefono,
         email,
         fecha_nacimiento
-      `)
+      `,
+      )
       .eq('estado_paciente_id', 1); // 1 = Activo
 
     // Aplicar filtros si tienen valor
@@ -45,7 +49,9 @@ export class HistorialService {
     const { data, error } = await query.limit(10);
 
     if (error) {
-      throw new InternalServerErrorException(`Error buscando pacientes: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error buscando pacientes: ${error.message}`,
+      );
     }
 
     // Obtener conteo de citas para cada paciente
@@ -60,7 +66,7 @@ export class HistorialService {
           ...patient,
           total_citas: count || 0,
         };
-      })
+      }),
     );
 
     return patientsWithCounts;
@@ -71,10 +77,15 @@ export class HistorialService {
    * @param months - Opcional: filtrar citas de los últimos X meses hacia adelante
    * @param estadoId - Opcional: filtrar por estado (1=Reservada, 2=Completada)
    */
-  async getPatientHistory(pacienteId: string, months?: number, estadoId?: number) {
+  async getPatientHistory(
+    pacienteId: string,
+    months?: number,
+    estadoId?: number,
+  ) {
     let query = this.supabase
       .from('cita')
-      .select(`
+      .select(
+        `
         id,
         fecha_hora_inicio,
         motivo_cita,
@@ -85,7 +96,8 @@ export class HistorialService {
           id,
           nombre
         )
-      `)
+      `,
+      )
       .eq('paciente_id', pacienteId);
 
     // Filtrar por fecha si se especifica months
@@ -100,10 +112,14 @@ export class HistorialService {
       query = query.eq('estado_id', estadoId);
     }
 
-    const { data, error } = await query.order('fecha_hora_inicio', { ascending: false });
+    const { data, error } = await query.order('fecha_hora_inicio', {
+      ascending: false,
+    });
 
     if (error) {
-      throw new InternalServerErrorException(`Error obteniendo historial: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Error obteniendo historial: ${error.message}`,
+      );
     }
 
     // Para cada cita, obtener si tiene documentos y recetas
@@ -128,7 +144,7 @@ export class HistorialService {
           documentos_count: docsCount || 0,
           recetas_count: recetasCount || 0,
         };
-      })
+      }),
     );
 
     return citasWithExtras;
@@ -141,7 +157,8 @@ export class HistorialService {
     // Cita base
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select(`
+      .select(
+        `
         id,
         fecha_hora_inicio,
         motivo_cita,
@@ -150,13 +167,16 @@ export class HistorialService {
         procedimientos_realizados,
         estado_id,
         estado_cita (id, nombre)
-      `)
+      `,
+      )
       .eq('id', citaId)
       .single();
 
     if (citaError) {
       console.error('Error fetching cita:', citaError);
-      throw new InternalServerErrorException(`Error obteniendo cita: ${citaError.message}`);
+      throw new InternalServerErrorException(
+        `Error obteniendo cita: ${citaError.message}`,
+      );
     }
 
     if (!cita) {
@@ -228,7 +248,9 @@ export class HistorialService {
     // Documentos
     const { data: documentos } = await this.supabase
       .from('documentos_clinicos')
-      .select('id, url_almacenamiento, nombre_archivo, tipo_archivo, fecha_subida')
+      .select(
+        'id, url_almacenamiento, nombre_archivo, tipo_archivo, fecha_subida',
+      )
       .eq('cita_id', citaId)
       .order('fecha_subida', { ascending: false });
 

@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 // DTO para medicamentos de receta
