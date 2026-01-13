@@ -138,4 +138,29 @@ export class AdminController {
   getAvailableTables() {
     return this.adminService.getAvailableTables();
   }
+
+  // =====================================================
+  // GESTIÓN DE DOCUMENTOS
+  // =====================================================
+
+  /**
+   * GET /admin/documentos
+   * Obtener documentos agrupados por paciente
+   */
+  @Get('documentos')
+  getDocumentsByPatient(
+    @Query('pacienteId') pacienteId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getDocumentsByPatient({ pacienteId, search });
+  }
+
+  /**
+   * GET /admin/documentos/stats
+   * Obtener estadísticas de documentos
+   */
+  @Get('documentos/stats')
+  getDocumentStats() {
+    return this.adminService.getDocumentStats();
+  }
 }

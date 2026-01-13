@@ -55,6 +55,7 @@ export async function updateSession(request: NextRequest) {
     "/admin-usuarios",
     "/admin-auditoria",
     "/admin-citas",
+    "/admin-documentos",
   ];
   
   // 2. Rutas solo para NO logueados (Login/Registro)
@@ -73,6 +74,7 @@ export async function updateSession(request: NextRequest) {
     "/admin-usuarios",
     "/admin-auditoria",
     "/admin-citas",
+    "/admin-documentos",
   ];
 
   const isProtectedRoute = protectedPaths.some((p) => path.startsWith(p));

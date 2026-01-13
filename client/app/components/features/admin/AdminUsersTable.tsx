@@ -271,25 +271,24 @@ export function AdminUsersTable({
 
                         <DropdownMenuSeparator />
 
-                        {/* Solo pacientes pueden ser desactivados/activados */}
-                        {user.tipo_usuario === "PACIENTE" &&
-                          (user.estado_activo ? (
-                            <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
-                              onClick={() => handleDeactivateClick(user)}
-                            >
-                              <UserX className="mr-2 h-4 w-4" />
-                              Desactivar Usuario
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              className="text-green-600 focus:text-green-600 focus:bg-green-50 cursor-pointer"
-                              onClick={() => handleActivateClick(user)}
-                            >
-                              <UserCheck className="mr-2 h-4 w-4" />
-                              Activar Usuario
-                            </DropdownMenuItem>
-                          ))}
+                        {/* Opciones de desactivar/activar para TODOS los usuarios */}
+                        {user.estado_activo ? (
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                            onClick={() => handleDeactivateClick(user)}
+                          >
+                            <UserX className="mr-2 h-4 w-4" />
+                            Desactivar Usuario
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            className="text-green-600 focus:text-green-600 focus:bg-green-50 cursor-pointer"
+                            onClick={() => handleActivateClick(user)}
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Activar Usuario
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -313,14 +312,28 @@ export function AdminUsersTable({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              ¿Desactivar este usuario?
+              ¿Desactivar este{" "}
+              {selectedUser?.tipo_usuario === "PODOLOGO"
+                ? "podólogo"
+                : "usuario"}
+              ?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              El usuario{" "}
-              <strong>
-                {selectedUser?.nombres} {selectedUser?.apellidos}
-              </strong>{" "}
-              no podrá acceder al sistema hasta que sea reactivado.
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                {selectedUser?.tipo_usuario === "PODOLOGO"
+                  ? "El podólogo"
+                  : "El usuario"}{" "}
+                <strong>
+                  {selectedUser?.nombres} {selectedUser?.apellidos}
+                </strong>{" "}
+                no podrá acceder al sistema hasta que sea reactivado.
+              </span>
+              {selectedUser?.tipo_usuario === "PODOLOGO" && (
+                <span className="block text-amber-600 font-medium">
+                  ⚠️ Mientras esté desactivado, el podólogo no podrá iniciar
+                  sesión ni gestionar citas.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

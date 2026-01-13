@@ -64,13 +64,24 @@ export class AuthService {
       // B. ¿Es Podólogo?
       const { data: podologo, error: podologoError } = await this.supabase
         .from('podologo')
-        .select('usuario_id')
+        .select('usuario_id, estado')
         .eq('usuario_id', userId)
         .maybeSingle();
 
       console.log(`(API) Resultado podologo:`, podologo, `Error:`, podologoError);
 
       if (podologo) {
+        // --- VALIDACIÓN DE ESTADO PODÓLOGO ---
+        // estado = 1 es Activo, estado = 0 es Inactivo
+        if (podologo.estado === 0) {
+          console.warn(
+            `(API) Podólogo ${email} intentó entrar pero está INACTIVO`,
+          );
+          await this.supabase.auth.signOut();
+          throw new ForbiddenException(
+            'Tu cuenta de podólogo está desactivada. Por favor contacta al administrador.',
+          );
+        }
         role = 'PODOLOGO';
         console.log(`(API) Usuario identificado como PODOLOGO`);
       } else {

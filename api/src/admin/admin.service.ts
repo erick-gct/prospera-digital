@@ -110,6 +110,7 @@ export class AdminService {
             fecha_nacimiento,
             pais_id,
             tipo_sangre_id,
+            estado,
             fecha_creacion,
             fecha_modificacion,
             paises (nombre),
@@ -134,12 +135,12 @@ export class AdminService {
         if (errorPodologos) {
           console.error('Error al obtener podólogos:', errorPodologos);
         } else if (podologos) {
-          podologos.forEach((p) => {
+          podologos.forEach((p: any) => {
             users.push({
               ...p,
               tipo_usuario: 'PODOLOGO',
-              estado_nombre: 'Activo',
-              estado_activo: true,
+              estado_nombre: p.estado === 1 ? 'Activo' : 'Inactivo',
+              estado_activo: p.estado === 1,
             });
           });
         }
@@ -261,37 +262,65 @@ export class AdminService {
     }
   }
   /**
-   * Desactivar un usuario (solo pacientes por ahora)
+   * Desactivar un usuario (pacientes y podólogos)
    */
   async deactivateUser(userId: string) {
     try {
-      // Verificar que sea un paciente
-      const { data: paciente, error: findError } = await this.supabase
+      // Primero verificar si es paciente
+      const { data: paciente } = await this.supabase
         .from('paciente')
         .select('usuario_id, nombres, apellidos, estado_paciente_id')
         .eq('usuario_id', userId)
         .maybeSingle();
-      if (findError || !paciente) {
-        throw new NotFoundException('Paciente no encontrado');
+
+      if (paciente) {
+        if (paciente.estado_paciente_id === 2) {
+          return { message: 'El usuario ya está inactivo' };
+        }
+        const { error: updateError } = await this.supabase
+          .from('paciente')
+          .update({
+            estado_paciente_id: 2,
+            fecha_modificacion: new Date().toISOString(),
+          })
+          .eq('usuario_id', userId);
+        if (updateError) {
+          throw new InternalServerErrorException('Error al desactivar paciente');
+        }
+        return {
+          message: 'Paciente desactivado correctamente',
+          usuario: `${paciente.nombres} ${paciente.apellidos}`,
+        };
       }
-      if (paciente.estado_paciente_id === 2) {
-        return { message: 'El usuario ya está inactivo' };
+
+      // Si no es paciente, verificar si es podólogo
+      const { data: podologo } = await this.supabase
+        .from('podologo')
+        .select('usuario_id, nombres, apellidos, estado')
+        .eq('usuario_id', userId)
+        .maybeSingle();
+
+      if (podologo) {
+        if (podologo.estado === 0) {
+          return { message: 'El podólogo ya está inactivo' };
+        }
+        const { error: updateError } = await this.supabase
+          .from('podologo')
+          .update({
+            estado: 0,
+            fecha_modificacion: new Date().toISOString(),
+          })
+          .eq('usuario_id', userId);
+        if (updateError) {
+          throw new InternalServerErrorException('Error al desactivar podólogo');
+        }
+        return {
+          message: 'Podólogo desactivado correctamente',
+          usuario: `${podologo.nombres} ${podologo.apellidos}`,
+        };
       }
-      // Desactivar (estado_paciente_id = 2)
-      const { error: updateError } = await this.supabase
-        .from('paciente')
-        .update({
-          estado_paciente_id: 2,
-          fecha_modificacion: new Date().toISOString(),
-        })
-        .eq('usuario_id', userId);
-      if (updateError) {
-        throw new InternalServerErrorException('Error al desactivar usuario');
-      }
-      return {
-        message: 'Usuario desactivado correctamente',
-        usuario: `${paciente.nombres} ${paciente.apellidos}`,
-      };
+
+      throw new NotFoundException('Usuario no encontrado');
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       console.error('Error en deactivateUser:', error);
@@ -299,35 +328,65 @@ export class AdminService {
     }
   }
   /**
-   * Reactivar un usuario (solo pacientes)
+   * Reactivar un usuario (pacientes y podólogos)
    */
   async reactivateUser(userId: string) {
     try {
-      const { data: paciente, error: findError } = await this.supabase
+      // Primero verificar si es paciente
+      const { data: paciente } = await this.supabase
         .from('paciente')
         .select('usuario_id, nombres, apellidos, estado_paciente_id')
         .eq('usuario_id', userId)
         .maybeSingle();
-      if (findError || !paciente) {
-        throw new NotFoundException('Paciente no encontrado');
+
+      if (paciente) {
+        if (paciente.estado_paciente_id === 1) {
+          return { message: 'El paciente ya está activo' };
+        }
+        const { error: updateError } = await this.supabase
+          .from('paciente')
+          .update({
+            estado_paciente_id: 1,
+            fecha_modificacion: new Date().toISOString(),
+          })
+          .eq('usuario_id', userId);
+        if (updateError) {
+          throw new InternalServerErrorException('Error al reactivar paciente');
+        }
+        return {
+          message: 'Paciente reactivado correctamente',
+          usuario: `${paciente.nombres} ${paciente.apellidos}`,
+        };
       }
-      if (paciente.estado_paciente_id === 1) {
-        return { message: 'El usuario ya está activo' };
+
+      // Si no es paciente, verificar si es podólogo
+      const { data: podologo } = await this.supabase
+        .from('podologo')
+        .select('usuario_id, nombres, apellidos, estado')
+        .eq('usuario_id', userId)
+        .maybeSingle();
+
+      if (podologo) {
+        if (podologo.estado === 1) {
+          return { message: 'El podólogo ya está activo' };
+        }
+        const { error: updateError } = await this.supabase
+          .from('podologo')
+          .update({
+            estado: 1,
+            fecha_modificacion: new Date().toISOString(),
+          })
+          .eq('usuario_id', userId);
+        if (updateError) {
+          throw new InternalServerErrorException('Error al reactivar podólogo');
+        }
+        return {
+          message: 'Podólogo reactivado correctamente',
+          usuario: `${podologo.nombres} ${podologo.apellidos}`,
+        };
       }
-      const { error: updateError } = await this.supabase
-        .from('paciente')
-        .update({
-          estado_paciente_id: 1,
-          fecha_modificacion: new Date().toISOString(),
-        })
-        .eq('usuario_id', userId);
-      if (updateError) {
-        throw new InternalServerErrorException('Error al reactivar usuario');
-      }
-      return {
-        message: 'Usuario reactivado correctamente',
-        usuario: `${paciente.nombres} ${paciente.apellidos}`,
-      };
+
+      throw new NotFoundException('Usuario no encontrado');
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       console.error('Error en reactivateUser:', error);
@@ -746,6 +805,200 @@ export class AdminService {
       }
       console.error('Error creating podologo:', error);
       throw new InternalServerErrorException('Error al crear el podólogo');
+    }
+  }
+
+  // =====================================================
+  // GESTIÓN DE DOCUMENTOS
+  // =====================================================
+
+  /**
+   * Obtener todos los documentos agrupados por paciente
+   */
+  async getDocumentsByPatient(filters?: { pacienteId?: string; search?: string }) {
+    try {
+      // 1. Obtener todos los documentos con información de cita
+      const { data: documentos, error } = await this.supabase
+        .from('documentos_clinicos')
+        .select(`
+          id,
+          url_almacenamiento,
+          nombre_archivo,
+          tipo_archivo,
+          fecha_subida,
+          cita_id
+        `)
+        .order('fecha_subida', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching documents:', error);
+        throw new InternalServerErrorException('Error al obtener documentos');
+      }
+
+      if (!documentos || documentos.length === 0) {
+        return { pacientes: [], totalDocumentos: 0, totalPacientes: 0 };
+      }
+
+      // 2. Obtener IDs únicos de citas
+      const citaIds = [...new Set(documentos.map(d => d.cita_id).filter(Boolean))];
+      
+      // 3. Obtener información de citas
+      const { data: citas } = await this.supabase
+        .from('cita')
+        .select('id, fecha_hora_inicio, paciente_id')
+        .in('id', citaIds);
+
+      // Crear mapa de citas
+      const citasMap = new Map(citas?.map(c => [c.id, c]) || []);
+
+      // 4. Obtener IDs únicos de pacientes
+      const pacienteIds = [...new Set(citas?.map(c => c.paciente_id).filter(Boolean) || [])];
+
+      // 5. Obtener información de pacientes
+      const { data: pacientes } = await this.supabase
+        .from('paciente')
+        .select('usuario_id, nombres, apellidos, cedula, email')
+        .in('usuario_id', pacienteIds);
+
+      // Crear mapa de pacientes
+      const pacientesMap = new Map(pacientes?.map(p => [p.usuario_id, p]) || []);
+
+      // 6. Agrupar documentos por paciente
+      const pacientesDocsMap = new Map<string, {
+        paciente: {
+          usuario_id: string;
+          nombres: string;
+          apellidos: string;
+          cedula: string;
+          email: string;
+        };
+        documentos: any[];
+        totalDocumentos: number;
+      }>();
+
+      documentos.forEach((doc) => {
+        const cita = citasMap.get(doc.cita_id);
+        if (!cita) return;
+
+        const paciente = pacientesMap.get(cita.paciente_id);
+        if (!paciente) return;
+
+        const pacienteId = paciente.usuario_id;
+
+        // Filtrar por paciente si se especifica
+        if (filters?.pacienteId && pacienteId !== filters.pacienteId) {
+          return;
+        }
+
+        // Filtrar por búsqueda (nombre, apellido, cédula, nombre archivo)
+        if (filters?.search) {
+          const searchLower = filters.search.toLowerCase();
+          const matchesSearch = 
+            paciente.nombres?.toLowerCase().includes(searchLower) ||
+            paciente.apellidos?.toLowerCase().includes(searchLower) ||
+            paciente.cedula?.toLowerCase().includes(searchLower) ||
+            doc.nombre_archivo?.toLowerCase().includes(searchLower);
+          
+          if (!matchesSearch) return;
+        }
+
+        if (!pacientesDocsMap.has(pacienteId)) {
+          pacientesDocsMap.set(pacienteId, {
+            paciente: {
+              usuario_id: paciente.usuario_id,
+              nombres: paciente.nombres,
+              apellidos: paciente.apellidos,
+              cedula: paciente.cedula,
+              email: paciente.email,
+            },
+            documentos: [],
+            totalDocumentos: 0,
+          });
+        }
+
+        const pacienteData = pacientesDocsMap.get(pacienteId)!;
+        pacienteData.documentos.push({
+          id: doc.id,
+          url_almacenamiento: doc.url_almacenamiento,
+          nombre_archivo: doc.nombre_archivo,
+          tipo_archivo: doc.tipo_archivo,
+          fecha_subida: doc.fecha_subida,
+          cita_id: doc.cita_id,
+          fecha_cita: cita.fecha_hora_inicio,
+        });
+        pacienteData.totalDocumentos++;
+      });
+
+      // 7. Convertir Map a Array y ordenar por cantidad de documentos
+      const pacientesArray = Array.from(pacientesDocsMap.values())
+        .sort((a, b) => b.totalDocumentos - a.totalDocumentos);
+
+      const totalDocumentos = pacientesArray.reduce(
+        (sum, p) => sum + p.totalDocumentos, 0
+      );
+
+      return {
+        pacientes: pacientesArray,
+        totalDocumentos,
+        totalPacientes: pacientesArray.length,
+      };
+    } catch (error) {
+      if (error instanceof InternalServerErrorException) throw error;
+      console.error('Error in getDocumentsByPatient:', error);
+      throw new InternalServerErrorException('Error al obtener documentos');
+    }
+  }
+
+  /**
+   * Obtener estadísticas de documentos
+   */
+  async getDocumentStats() {
+    try {
+      // Total documentos
+      const { count: totalDocs } = await this.supabase
+        .from('documentos_clinicos')
+        .select('*', { count: 'exact', head: true });
+
+      // Documentos por tipo
+      const { data: docsByType } = await this.supabase
+        .from('documentos_clinicos')
+        .select('tipo_archivo');
+
+      const tiposCount: Record<string, number> = {};
+      docsByType?.forEach((doc: any) => {
+        const tipo = doc.tipo_archivo || 'Desconocido';
+        tiposCount[tipo] = (tiposCount[tipo] || 0) + 1;
+      });
+
+      // Pacientes con documentos - obtener cita_ids primero
+      const { data: docsWithCita } = await this.supabase
+        .from('documentos_clinicos')
+        .select('cita_id');
+      
+      const citaIds = [...new Set(docsWithCita?.map(d => d.cita_id).filter(Boolean) || [])];
+      
+      let pacientesUnicos = new Set<string>();
+      if (citaIds.length > 0) {
+        const { data: citas } = await this.supabase
+          .from('cita')
+          .select('paciente_id')
+          .in('id', citaIds);
+        
+        pacientesUnicos = new Set(citas?.map(c => c.paciente_id).filter(Boolean) || []);
+      }
+
+      return {
+        totalDocumentos: totalDocs || 0,
+        pacientesConDocumentos: pacientesUnicos.size,
+        documentosPorTipo: tiposCount,
+      };
+    } catch (error) {
+      console.error('Error getting document stats:', error);
+      return {
+        totalDocumentos: 0,
+        pacientesConDocumentos: 0,
+        documentosPorTipo: {},
+      };
     }
   }
 }

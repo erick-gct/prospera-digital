@@ -172,5 +172,17 @@ export const ApiRoutes = {
         `${API_BASE_URL}/admin/auditoria/login-history${limit ? `?limit=${limit}` : ''}`,
       tables: `${API_BASE_URL}/admin/auditoria/tables`,
     },
+    // Documentos
+    documentos: {
+      base: `${API_BASE_URL}/admin/documentos`,
+      stats: `${API_BASE_URL}/admin/documentos/stats`,
+      list: (filters?: { pacienteId?: string; search?: string }) => {
+        const params = new URLSearchParams();
+        if (filters?.pacienteId) params.append('pacienteId', filters.pacienteId);
+        if (filters?.search) params.append('search', filters.search);
+        const queryString = params.toString();
+        return `${API_BASE_URL}/admin/documentos${queryString ? `?${queryString}` : ''}`;
+      },
+    },
   },
 };

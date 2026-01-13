@@ -25,6 +25,7 @@ import {
   Shield,
   CalendarClock,
   UserCog,
+  FolderOpen,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/cliente";
@@ -59,6 +60,7 @@ const adminLinks: NavLink[] = [
   { href: "/dashboard", label: "Panel General", icon: LayoutDashboard },
   { href: "/admin-usuarios", label: "Gestión de Usuarios", icon: UserCog },
   { href: "/admin-citas", label: "Citas del Sistema", icon: CalendarClock },
+  { href: "/admin-documentos", label: "Documentos", icon: FolderOpen },
   { href: "/admin-auditoria", label: "Auditoría", icon: Shield },
 ];
 
