@@ -16,6 +16,7 @@ import {
   Loader2,
   FileImage,
   FileType,
+  Stethoscope,
 } from "lucide-react";
 import { ApiRoutes } from "@/lib/api-routes";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
 
 interface Documento {
   id: number;
@@ -49,6 +52,7 @@ interface Documento {
   fecha_subida: string;
   cita_id: number;
   fecha_cita: string;
+  podologo_nombre: string;
 }
 
 interface PacienteDocumentos {
@@ -74,6 +78,7 @@ export default function AdminDocumentosPage() {
   const [stats, setStats] = useState<DocumentStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(
     new Set()
   );
@@ -99,8 +104,27 @@ export default function AdminDocumentosPage() {
   const fetchDocuments = useCallback(async () => {
     try {
       setIsLoading(true);
+
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+
+      if (dateRange?.from) {
+        // Inicio del rango (00:00:00)
+        const start = new Date(dateRange.from);
+        start.setHours(0, 0, 0, 0);
+        startDate = start.toISOString();
+
+        // Fin del rango (23:59:59)
+        // Si no hay `to`, se asume que es un solo día (from = to)
+        const end = new Date(dateRange.to || dateRange.from);
+        end.setHours(23, 59, 59, 999);
+        endDate = end.toISOString();
+      }
+
       const url = ApiRoutes.admin.documentos.list({
         search: searchQuery || undefined,
+        startDate,
+        endDate,
       });
 
       const res = await fetch(url);
@@ -113,7 +137,7 @@ export default function AdminDocumentosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, dateRange]);
 
   useEffect(() => {
     fetchStats();
@@ -235,18 +259,27 @@ export default function AdminDocumentosPage() {
         </div>
       )}
 
-      {/* Barra de búsqueda */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+      {/* Barra de búsqueda y Filtros */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por paciente, cédula o nombre de archivo..."
+            placeholder="Buscar por paciente, cédula, archivo o podólogo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
           />
         </div>
-        <Badge variant="outline" className="text-muted-foreground">
+        
+        <div className="w-full md:w-[300px]">
+          <DatePickerWithRange 
+            date={dateRange} 
+            setDate={setDateRange} 
+            className="w-full"
+          />
+        </div>
+
+        <Badge variant="outline" className="text-muted-foreground h-10 px-4 flex items-center justify-center whitespace-nowrap">
           {pacientes.length} paciente{pacientes.length !== 1 ? "s" : ""}
         </Badge>
       </div>
@@ -261,9 +294,9 @@ export default function AdminDocumentosPage() {
           <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground border border-dashed rounded-lg bg-muted/5">
             <FolderOpen className="h-12 w-12 mb-4 opacity-50" />
             <p>No se encontraron documentos.</p>
-            {searchQuery && (
-              <p className="text-sm">Intenta con otra búsqueda.</p>
-            )}
+            {searchQuery || dateRange ? (
+              <p className="text-sm">Intenta ajustar los filtros de búsqueda.</p>
+            ) : null}
           </div>
         ) : (
           pacientes.map((item) => (
@@ -323,7 +356,9 @@ export default function AdminDocumentosPage() {
                             <th className="text-left p-3 font-medium">
                               Fecha Subida
                             </th>
-                            <th className="text-left p-3 font-medium">Cita</th>
+                            <th className="text-left p-3 font-medium">
+                              Subido Por (Podólogo/Cita)
+                            </th>
                             <th className="text-right p-3 font-medium">
                               Acciones
                             </th>
@@ -357,15 +392,23 @@ export default function AdminDocumentosPage() {
                                 {formatDate(doc.fecha_subida)}
                               </td>
                               <td className="p-3">
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Calendar className="h-3 w-3" />
-                                  <span className="text-xs">
-                                    {doc.fecha_cita
-                                      ? new Date(
-                                          doc.fecha_cita
-                                        ).toLocaleDateString("es-ES")
-                                      : `#${doc.cita_id}`}
-                                  </span>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1 text-primary/80 font-medium">
+                                    <Stethoscope className="h-3 w-3" />
+                                    <span className="text-xs">
+                                      {doc.podologo_nombre}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <Calendar className="h-3 w-3" />
+                                    <span className="text-xs">
+                                      Cita: {doc.fecha_cita
+                                        ? new Date(
+                                            doc.fecha_cita
+                                          ).toLocaleDateString("es-ES")
+                                        : `#${doc.cita_id}`}
+                                    </span>
+                                  </div>
                                 </div>
                               </td>
                               <td className="p-3 text-right">

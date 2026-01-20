@@ -176,13 +176,26 @@ export const ApiRoutes = {
     documentos: {
       base: `${API_BASE_URL}/admin/documentos`,
       stats: `${API_BASE_URL}/admin/documentos/stats`,
-      list: (filters?: { pacienteId?: string; search?: string }) => {
+      list: (filters?: {
+        pacienteId?: string;
+        search?: string;
+        startDate?: string;
+        endDate?: string;
+      }) => {
         const params = new URLSearchParams();
-        if (filters?.pacienteId) params.append('pacienteId', filters.pacienteId);
+        if (filters?.pacienteId)
+          params.append('pacienteId', filters.pacienteId);
         if (filters?.search) params.append('search', filters.search);
+        if (filters?.startDate) params.append('startDate', filters.startDate);
+        if (filters?.endDate) params.append('endDate', filters.endDate);
         const queryString = params.toString();
         return `${API_BASE_URL}/admin/documentos${queryString ? `?${queryString}` : ''}`;
       },
     },
+  },
+
+  // Reportes PDF
+  reports: {
+    citasPdf: `${API_BASE_URL}/reports/citas-pdf`,
   },
 };

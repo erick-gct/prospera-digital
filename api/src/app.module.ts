@@ -14,6 +14,7 @@ import { RecetaModule } from './receta/receta.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuditModule } from './audit/audit.module';
 import { AdminModule } from './admin/admin.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -32,8 +33,9 @@ import { AdminModule } from './admin/admin.module';
     DashboardModule,
     AuditModule,
     AdminModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

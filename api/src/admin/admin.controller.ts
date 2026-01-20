@@ -4,7 +4,7 @@ import { CreatePodologoDto } from './dto/create-podologo.dto';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService) { }
 
   // =====================================================
   // GESTIÓN DE USUARIOS
@@ -151,8 +151,15 @@ export class AdminController {
   getDocumentsByPatient(
     @Query('pacienteId') pacienteId?: string,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
-    return this.adminService.getDocumentsByPatient({ pacienteId, search });
+    return this.adminService.getDocumentsByPatient({
+      pacienteId,
+      search,
+      startDate,
+      endDate,
+    });
   }
 
   /**

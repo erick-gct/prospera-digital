@@ -481,16 +481,16 @@ export class AdminService {
           ...cita,
           paciente: paciente
             ? {
-                nombre_completo: `${paciente.nombres} ${paciente.apellidos}`,
-                cedula: paciente.cedula,
-                email: paciente.email,
-                telefono: paciente.telefono,
-              }
+              nombre_completo: `${paciente.nombres} ${paciente.apellidos}`,
+              cedula: paciente.cedula,
+              email: paciente.email,
+              telefono: paciente.telefono,
+            }
             : null,
           podologo: podologo
             ? {
-                nombre_completo: `Dr. ${podologo.nombres} ${podologo.apellidos}`,
-              }
+              nombre_completo: `Dr. ${podologo.nombres} ${podologo.apellidos}`,
+            }
             : null,
           estado_nombre: estadoMap.get(cita.estado_id) || 'Desconocido',
         };
@@ -683,7 +683,7 @@ export class AdminService {
       label:
         tableLabels[table as string] ||
         String(table).charAt(0).toUpperCase() +
-          String(table).slice(1).replace(/_/g, ' '),
+        String(table).slice(1).replace(/_/g, ' '),
     }));
   }
   /**
@@ -815,20 +815,37 @@ export class AdminService {
   /**
    * Obtener todos los documentos agrupados por paciente
    */
-  async getDocumentsByPatient(filters?: { pacienteId?: string; search?: string }) {
+  async getDocumentsByPatient(filters?: {
+    pacienteId?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
     try {
-      // 1. Obtener todos los documentos con información de cita
-      const { data: documentos, error } = await this.supabase
+      // 1. Construir query de documentos
+      let query = this.supabase
         .from('documentos_clinicos')
-        .select(`
+        .select(
+          `
           id,
           url_almacenamiento,
           nombre_archivo,
           tipo_archivo,
           fecha_subida,
           cita_id
-        `)
+        `,
+        )
         .order('fecha_subida', { ascending: false });
+
+      // Aplicar filtros de fecha si existen
+      if (filters?.startDate) {
+        query = query.gte('fecha_subida', filters.startDate);
+      }
+      if (filters?.endDate) {
+        query = query.lte('fecha_subida', filters.endDate);
+      }
+
+      const { data: documentos, error } = await query;
 
       if (error) {
         console.error('Error fetching documents:', error);
@@ -840,41 +857,61 @@ export class AdminService {
       }
 
       // 2. Obtener IDs únicos de citas
-      const citaIds = [...new Set(documentos.map(d => d.cita_id).filter(Boolean))];
-      
-      // 3. Obtener información de citas
+      const citaIds = [
+        ...new Set(documentos.map((d) => d.cita_id).filter(Boolean)),
+      ];
+
+      // 3. Obtener información de citas (incluyendo podólogo)
       const { data: citas } = await this.supabase
         .from('cita')
-        .select('id, fecha_hora_inicio, paciente_id')
+        .select('id, fecha_hora_inicio, paciente_id, podologo_id')
         .in('id', citaIds);
 
       // Crear mapa de citas
-      const citasMap = new Map(citas?.map(c => [c.id, c]) || []);
+      const citasMap = new Map(citas?.map((c) => [c.id, c]) || []);
 
-      // 4. Obtener IDs únicos de pacientes
-      const pacienteIds = [...new Set(citas?.map(c => c.paciente_id).filter(Boolean) || [])];
+      // 4. Obtener IDs únicos de pacientes y podólogos
+      const pacienteIds = [
+        ...new Set(citas?.map((c) => c.paciente_id).filter(Boolean) || []),
+      ];
+      const podologoIds = [
+        ...new Set(citas?.map((c) => c.podologo_id).filter(Boolean) || []),
+      ];
 
-      // 5. Obtener información de pacientes
+      // 5. Obtener información de pacientes y podólogos
       const { data: pacientes } = await this.supabase
         .from('paciente')
         .select('usuario_id, nombres, apellidos, cedula, email')
         .in('usuario_id', pacienteIds);
 
-      // Crear mapa de pacientes
-      const pacientesMap = new Map(pacientes?.map(p => [p.usuario_id, p]) || []);
+      const { data: podologos } = await this.supabase
+        .from('podologo')
+        .select('usuario_id, nombres, apellidos')
+        .in('usuario_id', podologoIds);
+
+      // Crear mapas
+      const pacientesMap = new Map(
+        pacientes?.map((p) => [p.usuario_id, p]) || [],
+      );
+      const podologosMap = new Map(
+        podologos?.map((p) => [p.usuario_id, p]) || [],
+      );
 
       // 6. Agrupar documentos por paciente
-      const pacientesDocsMap = new Map<string, {
-        paciente: {
-          usuario_id: string;
-          nombres: string;
-          apellidos: string;
-          cedula: string;
-          email: string;
-        };
-        documentos: any[];
-        totalDocumentos: number;
-      }>();
+      const pacientesDocsMap = new Map<
+        string,
+        {
+          paciente: {
+            usuario_id: string;
+            nombres: string;
+            apellidos: string;
+            cedula: string;
+            email: string;
+          };
+          documentos: any[];
+          totalDocumentos: number;
+        }
+      >();
 
       documentos.forEach((doc) => {
         const cita = citasMap.get(doc.cita_id);
@@ -883,6 +920,8 @@ export class AdminService {
         const paciente = pacientesMap.get(cita.paciente_id);
         if (!paciente) return;
 
+        const podologo = podologosMap.get(cita.podologo_id);
+
         const pacienteId = paciente.usuario_id;
 
         // Filtrar por paciente si se especifica
@@ -890,15 +929,20 @@ export class AdminService {
           return;
         }
 
-        // Filtrar por búsqueda (nombre, apellido, cédula, nombre archivo)
+        // Filtrar por búsqueda (nombre, apellido, cédula, nombre archivo, nombre podólogo)
         if (filters?.search) {
           const searchLower = filters.search.toLowerCase();
-          const matchesSearch = 
+          const podologoNombre = podologo
+            ? `${podologo.nombres} ${podologo.apellidos}`.toLowerCase()
+            : '';
+
+          const matchesSearch =
             paciente.nombres?.toLowerCase().includes(searchLower) ||
             paciente.apellidos?.toLowerCase().includes(searchLower) ||
             paciente.cedula?.toLowerCase().includes(searchLower) ||
-            doc.nombre_archivo?.toLowerCase().includes(searchLower);
-          
+            doc.nombre_archivo?.toLowerCase().includes(searchLower) ||
+            podologoNombre.includes(searchLower);
+
           if (!matchesSearch) return;
         }
 
@@ -925,16 +969,21 @@ export class AdminService {
           fecha_subida: doc.fecha_subida,
           cita_id: doc.cita_id,
           fecha_cita: cita.fecha_hora_inicio,
+          podologo_nombre: podologo
+            ? `Dr. ${podologo.nombres} ${podologo.apellidos}`
+            : 'Desconocido',
         });
         pacienteData.totalDocumentos++;
       });
 
       // 7. Convertir Map a Array y ordenar por cantidad de documentos
-      const pacientesArray = Array.from(pacientesDocsMap.values())
-        .sort((a, b) => b.totalDocumentos - a.totalDocumentos);
+      const pacientesArray = Array.from(pacientesDocsMap.values()).sort(
+        (a, b) => b.totalDocumentos - a.totalDocumentos,
+      );
 
       const totalDocumentos = pacientesArray.reduce(
-        (sum, p) => sum + p.totalDocumentos, 0
+        (sum, p) => sum + p.totalDocumentos,
+        0,
       );
 
       return {
@@ -974,16 +1023,16 @@ export class AdminService {
       const { data: docsWithCita } = await this.supabase
         .from('documentos_clinicos')
         .select('cita_id');
-      
+
       const citaIds = [...new Set(docsWithCita?.map(d => d.cita_id).filter(Boolean) || [])];
-      
+
       let pacientesUnicos = new Set<string>();
       if (citaIds.length > 0) {
         const { data: citas } = await this.supabase
           .from('cita')
           .select('paciente_id')
           .in('id', citaIds);
-        
+
         pacientesUnicos = new Set(citas?.map(c => c.paciente_id).filter(Boolean) || []);
       }
 

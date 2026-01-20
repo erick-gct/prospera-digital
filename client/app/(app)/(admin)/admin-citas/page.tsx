@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ReportGeneratorModal } from "@/components/reports/ReportGeneratorModal";
 
 interface Cita {
   id: number;
@@ -173,14 +174,17 @@ export default function AdminCitasPage() {
   return (
     <div className="rounded-sm border bg-white p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
-          <CalendarClock className="h-8 w-8" />
-          Citas del Sistema
-        </h1>
-        <p className="text-muted-foreground">
-          Visualiza todas las citas registradas en el sistema.
-        </p>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
+            <CalendarClock className="h-8 w-8" />
+            Citas del Sistema
+          </h1>
+          <p className="text-muted-foreground">
+            Visualiza todas las citas registradas en el sistema.
+          </p>
+        </div>
+        <ReportGeneratorModal />
       </div>
 
       {/* Estadísticas rápidas */}
