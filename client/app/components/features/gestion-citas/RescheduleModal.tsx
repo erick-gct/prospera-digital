@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { CalendarIcon, Clock, CalendarClock, Loader2 } from "lucide-react"
+import { CalendarIcon, Clock, CalendarClock, Loader2, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -35,6 +35,8 @@ interface RescheduleModalProps {
   fechaActual: Date
   podologoId: string
   onSuccess: () => void
+  userRole?: 'patient' | 'podologo' | 'admin' // Nuevo prop para rol
+  userId?: string // Nuevo prop para identificar quién solicita
 }
 
 // Generar slots de horarios según día (L-V: 8AM-5PM, S-D: 8AM-4PM)
@@ -67,7 +69,9 @@ export function RescheduleModal({
   nombrePaciente, 
   fechaActual,
   podologoId,
-  onSuccess 
+  onSuccess,
+  userRole = 'podologo', // Default a podologo (sin restricción) si no se especifica
+  userId
 }: RescheduleModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState("")
@@ -76,12 +80,29 @@ export function RescheduleModal({
   const [bookedSlots, setBookedSlots] = useState<string[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
 
+  // Calcular si hay restricción de 24 horas
+  const checkRestriction = () => {
+    if (userRole !== 'patient') return false
+    
+    // Comparar fechaActual de la cita con ahora
+    const now = new Date()
+    const diffMs = fechaActual.getTime() - now.getTime()
+    const diffHours = diffMs / (1000 * 60 * 60)
+    
+    return diffHours < 24
+  }
+
+  const isRestricted = checkRestriction()
+
   const timeSlots = generateTimeSlots(selectedDate)
 
-  // Cargar horas ocupadas cuando cambia la fecha
+  // Cargar horas ocupadas cuando cambia la fecha (GLOBAL)
   useEffect(() => {
     const fetchBookedSlots = async () => {
-      if (!selectedDate || !podologoId) {
+      // Si está restringido, no necesitamos cargar slots
+      if (isRestricted) return 
+
+      if (!selectedDate) {
         setBookedSlots([])
         return
       }
@@ -89,11 +110,14 @@ export function RescheduleModal({
       setLoadingSlots(true)
       try {
         const dateStr = format(selectedDate, 'yyyy-MM-dd')
-        const res = await fetch(ApiRoutes.citas.byDate(podologoId, dateStr))
+        // Usamos 'global' para obtener disponibilidad de TODOS los podólogos (bloqueo de consultorio)
+        const res = await fetch(ApiRoutes.citas.byDate('global', dateStr))
         if (res.ok) {
           const citas = await res.json()
           const horasOcupadas = citas
-            .filter((c: { estado_id: number; id: string }) => c.estado_id !== 3 && c.id !== citaId) // Excluir canceladas y la misma cita
+            // Filtramos canceladas y la misma cita (aunque el backend ya filtra canceladas, no está de más)
+            // IMPORTANTE: id es number o string, asegurar comparación. Backend retorna number usualmente.
+            .filter((c: { estado_id: number; id: number | string }) => c.estado_id !== 3 && String(c.id) !== String(citaId)) 
             .map((c: { fecha_hora_inicio: string }) => {
               const fecha = new Date(c.fecha_hora_inicio)
               return format(fecha, 'HH:mm')
@@ -107,7 +131,7 @@ export function RescheduleModal({
       }
     }
     fetchBookedSlots()
-  }, [selectedDate, podologoId, citaId])
+  }, [selectedDate, citaId, isRestricted])
 
   // Deshabilitar días pasados
   const disabledDays = (date: Date) => {
@@ -134,7 +158,10 @@ export function RescheduleModal({
       const response = await fetch(ApiRoutes.citas.reschedule(citaId), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nuevaFechaHora: newDateTime.toISOString() }),
+        body: JSON.stringify({ 
+          nuevaFechaHora: newDateTime.toISOString(),
+          userId: userId // Enviamos userId para validación extra en backend
+        }),
       })
 
       if (!response.ok) {
@@ -160,7 +187,7 @@ export function RescheduleModal({
     onOpenChange(false)
   }
 
-  const canReschedule = selectedDate && selectedTime
+  const canReschedule = selectedDate && selectedTime && !isRestricted
 
   return (
     <>
@@ -177,6 +204,22 @@ export function RescheduleModal({
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Mensaje de Restricción si aplica */}
+            {isRestricted && (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg flex gap-3 text-orange-800">
+                <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-semibold mb-1">No es posible reagendar</p>
+                  <p>
+                    Faltan menos de 24 horas para su cita. Por políticas del consultorio, no puede realizar cambios con tan poca anticipación.
+                  </p>
+                  <p className="mt-2 font-medium">
+                    Por favor, comuníquese directamente con el consultorio si necesita asistencia urgente.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Fecha actual */}
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">Fecha actual de la cita:</p>
@@ -185,77 +228,79 @@ export function RescheduleModal({
               </p>
             </div>
 
-            {/* Selector de fecha y hora */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Calendario */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-primary" />
-                  Nueva Fecha
-                </label>
-                <div className="border rounded-lg p-2 flex justify-center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateChange}
-                    disabled={disabledDays}
-                    locale={es}
-                    className="rounded-md"
-                  />
+            {/* Selector de fecha y hora (Oculto o Deshabilitado si hay restricción) */}
+            {!isRestricted && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Calendario */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
+                    Nueva Fecha
+                  </label>
+                  <div className="border rounded-lg p-2 flex justify-center">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateChange}
+                      disabled={disabledDays}
+                      locale={es}
+                      className="rounded-md"
+                    />
+                  </div>
+                </div>
+
+                {/* Selector de hora */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    Nueva Hora
+                    {bookedSlots.length > 0 && (
+                      <span className="text-xs text-orange-600">
+                        ({bookedSlots.length} globalmente ocupada)
+                      </span>
+                    )}
+                  </label>
+                  {selectedDate ? (
+                    <div className="border rounded-lg p-3 h-[300px] overflow-y-auto">
+                      {loadingSlots ? (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          Cargando disponibilidad...
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                          {timeSlots.map((time) => {
+                            const isBooked = bookedSlots.includes(time)
+                            return (
+                              <Button
+                                key={time}
+                                variant={selectedTime === time ? "default" : isBooked ? "ghost" : "outline"}
+                                size="sm"
+                                disabled={isBooked}
+                                className={cn(
+                                  "text-xs",
+                                  selectedTime === time && "ring-2 ring-primary ring-offset-2",
+                                  isBooked && "opacity-50 cursor-not-allowed line-through bg-muted text-muted-foreground"
+                                )}
+                                onClick={() => !isBooked && setSelectedTime(time)}
+                              >
+                                {time}
+                              </Button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg p-6 h-[300px] flex items-center justify-center text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Selecciona una fecha primero para ver los horarios disponibles
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Selector de hora */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Nueva Hora
-                  {bookedSlots.length > 0 && (
-                    <span className="text-xs text-orange-600">
-                      ({bookedSlots.length} no disponible)
-                    </span>
-                  )}
-                </label>
-                {selectedDate ? (
-                  <div className="border rounded-lg p-3 h-[300px] overflow-y-auto">
-                    {loadingSlots ? (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                        Cargando disponibilidad...
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-2">
-                        {timeSlots.map((time) => {
-                          const isBooked = bookedSlots.includes(time)
-                          return (
-                            <Button
-                              key={time}
-                              variant={selectedTime === time ? "default" : isBooked ? "ghost" : "outline"}
-                              size="sm"
-                              disabled={isBooked}
-                              className={cn(
-                                "text-xs",
-                                selectedTime === time && "ring-2 ring-primary ring-offset-2",
-                                isBooked && "opacity-50 cursor-not-allowed line-through bg-muted text-muted-foreground"
-                              )}
-                              onClick={() => !isBooked && setSelectedTime(time)}
-                            >
-                              {time}
-                            </Button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="border rounded-lg p-6 h-[300px] flex items-center justify-center text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Selecciona una fecha primero para ver los horarios disponibles
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
 
             {/* Resumen de nueva fecha */}
             {canReschedule && (
@@ -270,53 +315,61 @@ export function RescheduleModal({
             {/* Botón de reagendar */}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClose}>
-                Cancelar
+                {isRestricted ? "Cerrar" : "Cancelar"}
               </Button>
-              <Button 
-                onClick={() => setShowConfirmDialog(true)}
-                disabled={!canReschedule || isLoading}
-                className="gap-2"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CalendarClock className="h-4 w-4" />
-                )}
-                Reagendar
-              </Button>
+              {!isRestricted && (
+                <Button 
+                  onClick={() => setShowConfirmDialog(true)}
+                  disabled={!canReschedule || isLoading}
+                  className="gap-2"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CalendarClock className="h-4 w-4" />
+                  )}
+                  Reagendar
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Alert Dialog de confirmación */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Confirmar reagendamiento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              La cita de <span className="font-semibold">{nombrePaciente}</span> será reprogramada para:
-              <br />
-              <span className="font-semibold text-primary">
-                {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })} a las {selectedTime}
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmReschedule} disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Reagendando...
-                </>
-              ) : (
-                "Confirmar Reagendamiento"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      
+      {/* Alert Dialog (Solo renderizamos si no está restringido, redundancia) */}
+      {!isRestricted && (
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Confirmar reagendamiento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                La cita de <span className="font-semibold">{nombrePaciente}</span> será reprogramada para:
+                <br />
+                <span className="font-semibold text-primary">
+                  {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })} a las {selectedTime}
+                </span>
+                <br />
+                <span className="text-xs text-muted-foreground mt-2 block">
+                  Se verificó la disponibilidad global del consultorio.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmReschedule} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Reagendando...
+                  </>
+                ) : (
+                  "Confirmar Reagendamiento"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+       )}
     </>
   )
 }

@@ -36,8 +36,12 @@ export const ApiRoutes = {
       if (endDate) params.append('endDate', endDate);
       return `${API_BASE_URL}/appointments?${params.toString()}`;
     },
-    byDate: (podologoId: string, date: string) =>
-      `${API_BASE_URL}/appointments/by-date?podologoId=${podologoId}&date=${date}`,
+    byDate: (podologoId: string | undefined, date: string) => {
+      const url = `${API_BASE_URL}/appointments/by-date?date=${date}`;
+      return podologoId && podologoId !== 'global'
+        ? `${url}&podologoId=${podologoId}`
+        : url;
+    },
     getDetail: (citaId: string | number) =>
       `${API_BASE_URL}/appointments/${citaId}/detail`,
     updateDetail: (citaId: string | number) =>

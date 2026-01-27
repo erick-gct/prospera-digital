@@ -214,21 +214,29 @@ export class AppointmentService {
   /**
    * Obtener citas de un podólogo para una fecha específica (para gestión de citas)
    */
-  async findByDate(podologoId: string, date: string) {
+  async findByDate(date: string, podologoId?: string) {
     // Calcular inicio y fin del día
     const startOfDay = `${date}T00:00:00.000Z`;
     const endOfDay = `${date}T23:59:59.999Z`;
 
     // 1. Query para obtener citas del día
-    const { data: citas, error } = await this.supabase
+    let query = this.supabase
       .from('cita')
       .select(
-        'id, fecha_hora_inicio, motivo_cita, observaciones_paciente, observaciones_podologo, procedimientos_realizados, estado_id, paciente_id',
+        'id, fecha_hora_inicio, motivo_cita, observaciones_paciente, observaciones_podologo, procedimientos_realizados, estado_id, paciente_id, podologo_id',
       )
-      .eq('podologo_id', podologoId)
       .gte('fecha_hora_inicio', startOfDay)
       .lte('fecha_hora_inicio', endOfDay)
+      .neq('estado_id', 3) // Excluir canceladas
       .order('fecha_hora_inicio', { ascending: true });
+
+    // Si se especifica un podólogo (y no es 'global' o 'all'), filtramos.
+    // De lo contrario, traemos TODO para verificar disponibilidad GLOBAL.
+    if (podologoId && podologoId !== 'all' && podologoId !== 'global') {
+      query = query.eq('podologo_id', podologoId);
+    }
+
+    const { data: citas, error } = await query;
 
     if (error) {
       throw new InternalServerErrorException(
@@ -615,7 +623,7 @@ export class AppointmentService {
   /**
    * Cambiar el estado de una cita
    */
-  async updateStatus(citaId: number, estadoId: number) {
+  async updateStatus(citaId: number, estadoId: number, userId?: string) {
     // Verificar que el estado es válido (1, 2 o 3)
     if (![1, 2, 3].includes(estadoId)) {
       throw new BadRequestException('Estado no válido');
@@ -624,7 +632,7 @@ export class AppointmentService {
     // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio')
+      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio, paciente:paciente_id(usuario_id)')
       .eq('id', citaId)
       .single();
 
@@ -632,10 +640,41 @@ export class AppointmentService {
       throw new NotFoundException('Cita no encontrada');
     }
 
+    // --- VALIDACIÓN DE ESTADO ACTUAL ---
+    // SOLO las citas en estado "Reservada" (1) pueden cambiar de estado (a Cancelada)
+    if (cita.estado_id !== 1) {
+      throw new BadRequestException('Solo se pueden modificar citas que estén en estado Reservada.');
+    }
+
+    // --- RESTRICCIÓN PARA PACIENTES (24 Horas) ---
+    // Solo aplica si se está CANCELANDO (estado 3)
+    if (userId && estadoId === 3) {
+      // Nota: cita.paciente puede ser un array si la relación no es 'single' en la query.
+      const pacienteObj = Array.isArray(cita.paciente) ? cita.paciente[0] : cita.paciente;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const idPacienteCita = pacienteObj?.usuario_id || cita.paciente_id;
+
+      const esPaciente = idPacienteCita === userId;
+
+      if (esPaciente) {
+        const ahora = new Date();
+        const fechaCita = new Date(cita.fecha_hora_inicio);
+        const diffMs = fechaCita.getTime() - ahora.getTime();
+        const diffHoras = diffMs / (1000 * 60 * 60);
+
+        if (diffHoras < 24) {
+          throw new BadRequestException(
+            'No se puede cancelar la cita con menos de 24 horas de anticipación. Por favor, comunínquese con el consultorio.'
+          );
+        }
+      }
+    }
+
     // Actualizar el estado
     // Usamos podologo_id como usuario que hace el cambio (si es el podólogo)
     // O paciente_id si es el paciente cancelando
-    const userId = estadoId === 3 ? cita.paciente_id : cita.podologo_id;
+    // Si viene userId, podemos usarlo para log, pero mantenemos lógica anterior por consistencia.
+    const auditUserId = estadoId === 3 ? cita.paciente_id : cita.podologo_id;
     const { error: updateError } = await this.supabase
       .from('cita')
       .update({
@@ -679,7 +718,7 @@ export class AppointmentService {
       tabla: 'cita',
       registroId: citaId,
       accion: 'UPDATE',
-      usuarioId: userId,
+      usuarioId: auditUserId,
       usuarioNombre,
       datosAnteriores: { estado_id: cita.estado_id },
       datosNuevos: { estado_id: estadoId },
@@ -747,11 +786,11 @@ export class AppointmentService {
   /**
    * Reagendar una cita (cambiar fecha y hora)
    */
-  async reschedule(citaId: number, nuevaFechaHora: string) {
+  async reschedule(citaId: number, nuevaFechaHora: string, userId?: string) {
     // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio')
+      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio, paciente:paciente_id(usuario_id)')
       .eq('id', citaId)
       .single();
 
@@ -762,12 +801,56 @@ export class AppointmentService {
     // Solo se puede reagendar citas en estado "Reservada" (1)
     if (cita.estado_id !== 1) {
       throw new BadRequestException(
-        'Solo se pueden reagendar citas en estado Reservada',
+        'Solo se pueden reagendar citas que estén en estado Reservada.',
       );
+    }
+
+    // --- RESTRICCIÓN PARA PACIENTES (24 Horas) ---
+    if (userId) {
+      // Verificar si el usuario que solicita es el Paciente dueño de la cita
+      // Nota: cita.paciente puede ser un array si la relación no es 'single' en la query.
+      // TypeScript indica que es un array.
+      const pacienteObj = Array.isArray(cita.paciente) ? cita.paciente[0] : cita.paciente;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const idPacienteCita = pacienteObj?.usuario_id || cita.paciente_id;
+
+      const esPaciente = idPacienteCita === userId;
+
+      if (esPaciente) {
+        const ahora = new Date();
+        const fechaCita = new Date(cita.fecha_hora_inicio);
+        const diffMs = fechaCita.getTime() - ahora.getTime();
+        const diffHoras = diffMs / (1000 * 60 * 60);
+
+        if (diffHoras < 24) {
+          throw new BadRequestException(
+            'No se puede reagendar una cita con menos de 24 horas de anticipación. Por favor, comunínquese con el consultorio.'
+          );
+        }
+      }
     }
 
     // Guardar fecha anterior para el email
     const fechaAnterior = new Date(cita.fecha_hora_inicio);
+
+    // VALIDACIÓN DE DOBLE BOOKING (Manual Check) - GLOBAL
+    const { data: citasExistentes, error: checkError } = await this.supabase
+      .from('cita')
+      .select('id')
+      // .eq('podologo_id', cita.podologo_id) // ELIMINADO: Bloqueo global de horario
+      .eq('fecha_hora_inicio', nuevaFechaHora)
+      .neq('estado_id', 3) // Ignorar canceladas
+      .neq('id', citaId); // Ignorar la misma
+
+    if (checkError) {
+      throw new InternalServerErrorException('Error verificando disponibilidad.');
+    }
+
+    if (citasExistentes && citasExistentes.length > 0) {
+      throw new BadRequestException(
+        'Ya existe una cita reservada para esa fecha y hora en el consultorio.',
+      );
+    }
 
     // Actualizar la fecha y hora
     const { error: updateError } = await this.supabase

@@ -51,6 +51,7 @@ const podiatristLinks: NavLink[] = [
   { href: "/perfil", label: "Mi Perfil", icon: User },
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/agendar-paciente", label: "Agendar a Paciente", icon: CalendarPlus },
   { href: "/gestion-citas", label: "Gestionar Citas", icon: ClipboardList },
   { href: "/historial", label: "Historial Clínico", icon: FileText },
 ];

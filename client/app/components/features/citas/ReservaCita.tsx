@@ -171,7 +171,8 @@ export function AppointmentForm() {
       setLoadingSlots(true);
       try {
         const dateStr = format(appointmentData.fecha, 'yyyy-MM-dd');
-        const res = await fetch(ApiRoutes.citas.byDate(appointmentData.podologoId, dateStr));
+        // Usamos 'global' para verificar disponibilidad en TODO el consultorio (todas las citas de todos los podólogos)
+        const res = await fetch(ApiRoutes.citas.byDate('global', dateStr));
         if (res.ok) {
           const citas = await res.json();
           // Extraer las horas de las citas activas (no canceladas)

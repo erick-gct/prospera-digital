@@ -16,7 +16,8 @@ import {
   CalendarPlus,
   History,
   Footprints,
-  CalendarX
+  CalendarX,
+  RefreshCw
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -121,7 +122,10 @@ export function DashboardPaciente() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(ApiRoutes.dashboard.patient(userId))
+      const response = await fetch(ApiRoutes.dashboard.patient(userId), {
+        cache: 'no-store', // Asegurar datos frescos
+        headers: { 'Cache-Control': 'no-cache' } 
+      })
       if (response.ok) {
         const dashboardData = await response.json()
         setData(dashboardData)
@@ -146,7 +150,7 @@ export function DashboardPaciente() {
       const response = await fetch(ApiRoutes.citas.updateStatus(data.proximaCita.id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estadoId: 3 }),
+        body: JSON.stringify({ estadoId: 3, userId }),
       })
 
       if (response.ok) {
@@ -154,7 +158,17 @@ export function DashboardPaciente() {
         setShowCancelDialog(false)
         loadDashboard() // Refrescar dashboard
       } else {
-        toast.error('Error al cancelar la cita')
+        const errorData = await response.json()
+        
+        // Manejo específico de 404 (Cita no encontrada / Datos obsoletos)
+        if (response.status === 404) {
+          toast.error('La cita ya no existe o ha sido modificada.')
+          loadDashboard() // Forzar recarga inmediata
+          setShowCancelDialog(false)
+          return
+        }
+
+        toast.error(errorData.message || 'Error al cancelar la cita')
       }
     } catch (error) {
       console.error('Error:', error)
@@ -183,6 +197,7 @@ export function DashboardPaciente() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Error cargando dashboard</p>
+        <Button onClick={loadDashboard} variant="outline" className="mt-4">Reintentar</Button>
       </div>
     )
   }
@@ -203,9 +218,20 @@ export function DashboardPaciente() {
       {/* Header de bienvenida */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            👋 ¡Hola, {nombreCompleto}!
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">
+              👋 ¡Hola, {nombreCompleto}!
+            </h1>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={loadDashboard} 
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              title="Actualizar datos"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
           <p className="text-muted-foreground mt-1">
             Bienvenido a tu panel de control
           </p>
@@ -614,6 +640,8 @@ export function DashboardPaciente() {
           fechaActual={parseISO(data.proximaCita.fecha_hora_inicio)}
           podologoId={data.proximaCita.podologo_id || ""}
           onSuccess={handleRescheduleSuccess}
+          userRole="patient"
+          userId={userId || undefined}
         />
       )}
 

@@ -24,7 +24,7 @@ export class AppointmentController {
   constructor(
     private readonly appointmentService: AppointmentService,
     private readonly storageService: StorageService,
-  ) {}
+  ) { }
 
   @Post()
   create(@Body() createAppointmentDto: CreateAppointmentDto) {
@@ -46,10 +46,10 @@ export class AppointmentController {
 
   @Get('by-date')
   findByDate(
-    @Query('podologoId') podologoId: string,
     @Query('date') date: string,
+    @Query('podologoId') podologoId?: string,
   ) {
-    return this.appointmentService.findByDate(podologoId, date);
+    return this.appointmentService.findByDate(date, podologoId);
   }
 
   @Get(':id/detail')
@@ -69,16 +69,21 @@ export class AppointmentController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body('estadoId') estadoId: number) {
-    return this.appointmentService.updateStatus(parseInt(id, 10), estadoId);
+  updateStatus(
+    @Param('id') id: string,
+    @Body('estadoId') estadoId: number,
+    @Body('userId') userId?: string,
+  ) {
+    return this.appointmentService.updateStatus(parseInt(id, 10), estadoId, userId);
   }
 
   @Patch(':id/reschedule')
   reschedule(
     @Param('id') id: string,
     @Body('nuevaFechaHora') nuevaFechaHora: string,
+    @Body('userId') userId?: string, // Para verificar rol (opcional por ahora, idealmente via Guard)
   ) {
-    return this.appointmentService.reschedule(parseInt(id, 10), nuevaFechaHora);
+    return this.appointmentService.reschedule(parseInt(id, 10), nuevaFechaHora, userId);
   }
 
   // ================== DOCUMENTOS ==================

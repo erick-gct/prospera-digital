@@ -342,6 +342,7 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
           fechaActual={parseISO(rescheduleModal.cita.fecha_hora_inicio)}
           podologoId={podologoId}
           onSuccess={onRefresh}
+          userRole="podologo"
         />
       )}
     </>
