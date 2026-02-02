@@ -117,7 +117,7 @@ export function RescheduleModal({
           const horasOcupadas = citas
             // Filtramos canceladas y la misma cita (aunque el backend ya filtra canceladas, no está de más)
             // IMPORTANTE: id es number o string, asegurar comparación. Backend retorna number usualmente.
-            .filter((c: { estado_id: number; id: number | string }) => c.estado_id !== 3 && String(c.id) !== String(citaId)) 
+            .filter((c: { estado_id: number; id: number | string }) => c.estado_id !== 3) // Solo ignoramos canceladas 
             .map((c: { fecha_hora_inicio: string }) => {
               const fecha = new Date(c.fecha_hora_inicio)
               return format(fecha, 'HH:mm')

@@ -31,6 +31,24 @@ export class AppointmentService {
     const podologoId = createAppointmentDto.podologoId;
     const fechaCita = new Date(createAppointmentDto.fechaHoraInicio);
 
+    // 1.1 VALIDACIÓN DE CITA ACTIVA ÚNICA
+    // Regla: El paciente no puede tener más de una cita en estado "Reservada" (1).
+    const { count: citasPendientes, error: countError } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('paciente_id', createAppointmentDto.userId)
+      .eq('estado_id', 1);
+
+    if (countError) {
+      throw new InternalServerErrorException('Error verificando historial de citas.');
+    }
+
+    if (citasPendientes && citasPendientes > 0) {
+      throw new BadRequestException(
+        'Ya tienes una cita reservada pendiente. Debes completar o cancelar la actual antes de agendar una nueva.'
+      );
+    }
+
     // 2. VALIDACIÓN DE DOBLE BOOKING
     // Regla: No puede haber otra cita activa (estado != cancelado) a la misma hora para este podólogo.
     // Asumimos estado_id: 3 es "Cancelado".
@@ -632,7 +650,7 @@ export class AppointmentService {
     // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio, paciente:paciente_id(usuario_id)')
+      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio')
       .eq('id', citaId)
       .single();
 
@@ -649,12 +667,7 @@ export class AppointmentService {
     // --- RESTRICCIÓN PARA PACIENTES (24 Horas) ---
     // Solo aplica si se está CANCELANDO (estado 3)
     if (userId && estadoId === 3) {
-      // Nota: cita.paciente puede ser un array si la relación no es 'single' en la query.
-      const pacienteObj = Array.isArray(cita.paciente) ? cita.paciente[0] : cita.paciente;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const idPacienteCita = pacienteObj?.usuario_id || cita.paciente_id;
-
-      const esPaciente = idPacienteCita === userId;
+      const esPaciente = cita.paciente_id === userId;
 
       if (esPaciente) {
         const ahora = new Date();
@@ -790,7 +803,7 @@ export class AppointmentService {
     // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio, paciente:paciente_id(usuario_id)')
+      .select('id, estado_id, paciente_id, podologo_id, fecha_hora_inicio')
       .eq('id', citaId)
       .single();
 
@@ -807,14 +820,7 @@ export class AppointmentService {
 
     // --- RESTRICCIÓN PARA PACIENTES (24 Horas) ---
     if (userId) {
-      // Verificar si el usuario que solicita es el Paciente dueño de la cita
-      // Nota: cita.paciente puede ser un array si la relación no es 'single' en la query.
-      // TypeScript indica que es un array.
-      const pacienteObj = Array.isArray(cita.paciente) ? cita.paciente[0] : cita.paciente;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const idPacienteCita = pacienteObj?.usuario_id || cita.paciente_id;
-
-      const esPaciente = idPacienteCita === userId;
+      const esPaciente = cita.paciente_id === userId;
 
       if (esPaciente) {
         const ahora = new Date();
