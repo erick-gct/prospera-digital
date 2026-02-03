@@ -217,15 +217,15 @@ export class DashboardService {
     return {
       paciente: paciente
         ? {
-            nombres: paciente.nombres,
-            apellidos: paciente.apellidos,
-          }
+          nombres: paciente.nombres,
+          apellidos: paciente.apellidos,
+        }
         : null,
       proximaCita: proximaCita
         ? {
-            ...proximaCita,
-            podologo_nombre: podologoNombre,
-          }
+          ...proximaCita,
+          podologo_nombre: podologoNombre,
+        }
         : null,
       estadisticas: {
         totalCitas: totalCitas || 0,
@@ -239,10 +239,10 @@ export class DashboardService {
       ultimaEvaluacion,
       ultimaCitaData: ultimaCita
         ? {
-            id: ultimaCita.id,
-            documentos: ultimosDocs,
-            recetas: recetasAgrupadas,
-          }
+          id: ultimaCita.id,
+          documentos: ultimosDocs,
+          recetas: recetasAgrupadas,
+        }
         : null,
     };
   }
@@ -452,12 +452,144 @@ export class DashboardService {
       }
     }
 
+    // --- BI ANALYTICS (GLOBAL) ---
+    // 1. Top Patologías (Ficha Evaluación)
+    const { data: fichas } = await this.supabase
+      .from('ficha_evaluacion')
+      .select('tipo_pie_izq, tipo_pie_der');
+
+    const patologiasCount: Record<string, number> = {};
+    if (fichas) {
+      fichas.forEach((f) => {
+        if (f.tipo_pie_izq) {
+          const key = f.tipo_pie_izq.trim();
+          patologiasCount[key] = (patologiasCount[key] || 0) + 1;
+        }
+        if (f.tipo_pie_der) {
+          const key = f.tipo_pie_der.trim();
+          patologiasCount[key] = (patologiasCount[key] || 0) + 1;
+        }
+      });
+    }
+    const topPatologias = Object.entries(patologiasCount)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    // 2. Top Medicamentos (Detalles Receta)
+    const { data: detallesReceta } = await this.supabase
+      .from('detalles_receta')
+      .select('medicamento');
+
+    const medicamentosCount: Record<string, number> = {};
+    if (detallesReceta) {
+      detallesReceta.forEach((d) => {
+        if (d.medicamento) {
+          // Normalizar: Primera mayuscula, resto minuscula
+          const raw = d.medicamento.trim().toLowerCase();
+          const key = raw.charAt(0).toUpperCase() + raw.slice(1);
+          medicamentosCount[key] = (medicamentosCount[key] || 0) + 1;
+        }
+      });
+    }
+    const topMedicamentos = Object.entries(medicamentosCount)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    // 3. Distribución de Motivos (Citas Globales) - Top 5 + Otros
+    const { data: citasMotivos } = await this.supabase
+      .from('cita')
+      .select('motivo_cita');
+
+    const motivosCount: Record<string, number> = {};
+    if (citasMotivos) {
+      citasMotivos.forEach((c) => {
+        if (c.motivo_cita) {
+          const key = c.motivo_cita;
+          motivosCount[key] = (motivosCount[key] || 0) + 1;
+        }
+      });
+    }
+    let distribucionMotivos = Object.entries(motivosCount)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Agrupar 'Otros' si hay más de 5
+    if (distribucionMotivos.length > 5) {
+      const top5 = distribucionMotivos.slice(0, 5);
+      const otrosCount = distribucionMotivos.slice(5).reduce((acc, curr) => acc + curr.value, 0);
+      distribucionMotivos = [...top5, { name: 'Otros', value: otrosCount }];
+    }
+
+    // 4. Mapa de Calor Semanal (Ocupación)
+    // Analizar todas las citas NO canceladas de los últimos 3 meses
+    const { data: citasHeatmap } = await this.supabase
+      .from('cita')
+      .select('fecha_hora_inicio')
+      .neq('estado_id', 3) // No canceladas
+      .gte('fecha_hora_inicio', new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString());
+
+    // Matriz 7 días (0=Dom, 6=Sab) x 12 horas (8am - 7pm)
+    // Formato: { day: number, hour: number, value: number }
+    const heatmapCounts: Record<string, number> = {};
+
+    if (citasHeatmap) {
+      citasHeatmap.forEach(c => {
+        const d = new Date(c.fecha_hora_inicio);
+        const day = d.getDay(); // 0-6
+        const hour = d.getHours(); // e.g 9, 14
+        const key = `${day}-${hour}`;
+        heatmapCounts[key] = (heatmapCounts[key] || 0) + 1;
+      });
+    }
+
+    const semanalHeatmap: { day: string; hour: number; value: number }[] = [];
+    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    // Solo de 8am a 6pm (18:00)
+    for (let d = 1; d <= 6; d++) { // Lunes a Sábado
+      for (let h = 8; h <= 18; h++) {
+        const key = `${d}-${h}`;
+        const val = heatmapCounts[key] || 0;
+        if (val > 0) {
+          semanalHeatmap.push({
+            day: dias[d],
+            hour: h,
+            value: val
+          });
+        }
+      }
+    }
+
+    // 5. Tasa de Retención
+    // Porcentaje de pacientes con más de 1 cita
+    let tasaRetencion = 0;
+    const totalActivosSafe = pacientesActivos || 0;
+    const totalPacientesSafe = pacientesTotal || 0;
+
+    if (totalActivosSafe > 0) {
+      // Obtener citas agrupadas por paciente
+      const { data: citasPacientes } = await this.supabase
+        .from('cita')
+        .select('paciente_id');
+
+      const pacMap: Record<string, number> = {};
+      citasPacientes?.forEach(c => {
+        if (c.paciente_id) pacMap[c.paciente_id] = (pacMap[c.paciente_id] || 0) + 1;
+      });
+
+      const recurrentes = Object.values(pacMap).filter(count => count > 1).length;
+      if (totalPacientesSafe > 0) {
+        tasaRetencion = Math.round((recurrentes / totalPacientesSafe) * 100);
+      }
+    }
+
     return {
       podologo: podologo
         ? {
-            nombres: podologo.nombres,
-            apellidos: podologo.apellidos,
-          }
+          nombres: podologo.nombres,
+          apellidos: podologo.apellidos,
+        }
         : null,
       mesSeleccionado: {
         month: targetMonth,
@@ -480,11 +612,18 @@ export class DashboardService {
       citasHoyDetalles,
       ultimaCitaModificada: ultimaCitaModificada
         ? {
-            ...ultimaCitaModificada,
-            paciente_nombre: ultimaCitaPaciente,
-          }
+          ...ultimaCitaModificada,
+          paciente_nombre: ultimaCitaPaciente,
+        }
         : null,
       ultimoPacienteAtendido,
+      biAnalytics: {
+        topPatologias,
+        topMedicamentos,
+        distribucionMotivos,
+        semanalHeatmap,
+        tasaRetencion
+      }
     };
   }
 }

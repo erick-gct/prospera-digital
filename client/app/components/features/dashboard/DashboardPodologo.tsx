@@ -37,6 +37,8 @@ import { Pie, PieChart, Cell } from "recharts"
 import { ApiRoutes } from "@/lib/api-routes"
 import { createClient } from "@/lib/supabase/cliente"
 
+import PodologoBI from "./PodologoBI"
+
 interface DashboardData {
   podologo: {
     nombres: string
@@ -79,6 +81,13 @@ interface DashboardData {
     nombre: string
     fecha: string
   } | null
+  biAnalytics?: {
+    topPatologias: { name: string; value: number }[];
+    topMedicamentos: { name: string; value: number }[];
+    distribucionMotivos: { name: string; value: number }[];
+    semanalHeatmap: { day: string; hour: number; value: number }[];
+    tasaRetencion: number;
+  }
 }
 
 const chartConfig = {
@@ -211,6 +220,11 @@ export function DashboardPodologo() {
           <span className="font-semibold text-primary">{data.citasHoy} citas hoy</span>
         </div>
       </div>
+
+      {/* BI Analytics Section - Visible si hay datos */}
+      {data.biAnalytics && (
+        <PodologoBI data={data.biAnalytics} />
+      )}
 
       {/* Grid principal con filtro a la izquierda */}
       <div className="grid gap-6 lg:grid-cols-4">
