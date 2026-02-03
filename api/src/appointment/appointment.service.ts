@@ -565,75 +565,109 @@ export class AppointmentService {
       }
     }
 
-    // 5. Insertar recetas nuevas (no actualizamos las existentes)
+    // 5. Gestionar recetas (Crear nuevas o Actualizar existentes)
     if (dto.recetas && dto.recetas.length > 0) {
       for (const receta of dto.recetas) {
         if (receta.medicamentos && receta.medicamentos.length > 0) {
-          // Crear la receta
-          const { data: newReceta, error: recetaError } = await this.supabase
-            .from('receta')
-            .insert({
-              cita_id: citaId,
-              fecha_emision: now,
-              diagnostico_receta: null, // El diagnóstico ahora está en observaciones_podologo
-              fecha_creacion: now,
-            })
-            .select('id')
-            .single();
 
-          if (recetaError || !newReceta) {
-            throw new InternalServerErrorException(
-              `Error creando receta: ${recetaError?.message}`,
-            );
+          let recetaId = receta.id;
+
+          if (recetaId) {
+            // ACTUALIZAR RECETA EXISTENTE
+            // 1. Verificar existencia
+            const { data: existingReceta } = await this.supabase
+              .from('receta')
+              .select('id')
+              .eq('id', recetaId)
+              .single();
+
+            if (existingReceta) {
+              // 2. Eliminar detalles antiguos
+              await this.supabase
+                .from('detalles_receta')
+                .delete()
+                .eq('receta_id', recetaId);
+
+              // 3. Actualizar fecha modificación receta (opcional, para auditoría)
+              // await this.supabase.from('receta').update({ fecha_modificacion: now }).eq('id', recetaId);
+
+              // 4. Auditoría UPDATE
+              await logAuditEvent(this.supabase, {
+                tabla: 'receta',
+                registroId: recetaId,
+                accion: 'UPDATE',
+                usuarioId: cita.podologo_id,
+                usuarioNombre: nombrePodologo,
+                datosNuevos: {
+                  medicamentos_count: receta.medicamentos.length,
+                  medicamentos: receta.medicamentos
+                },
+              });
+            } else {
+              // Si viene con ID pero no existe (raro), lo tratamos como nuevo o error.
+              // Mejor lo creamos como nuevo para evitar fallos bloqueantes
+              recetaId = null;
+            }
           }
 
-          // Auditoría: Creación de receta
-          await logAuditEvent(this.supabase, {
-            tabla: 'receta',
-            registroId: newReceta.id,
-            accion: 'INSERT',
-            usuarioId: cita.podologo_id,
-            usuarioNombre: nombrePodologo,
-            datosNuevos: {
-              cita_id: citaId,
-              medicamentos: receta.medicamentos.length,
-            },
-          });
+          if (!recetaId) {
+            // CREAR NUEVA RECETA
+            const { data: newReceta, error: recetaError } = await this.supabase
+              .from('receta')
+              .insert({
+                cita_id: citaId,
+                fecha_emision: now,
+                diagnostico_receta: null,
+                fecha_creacion: now,
+              })
+              .select('id')
+              .single();
 
-          // Insertar detalles de receta
-          const detalles = receta.medicamentos.map((med: any) => ({
-            receta_id: newReceta.id,
-            medicamento: med.nombre,
-            dosis: med.dosis || null,
-            indicaciones: med.indicaciones || null,
-          }));
+            if (recetaError || !newReceta) {
+              throw new InternalServerErrorException(
+                `Error creando receta: ${recetaError?.message}`,
+              );
+            }
+            recetaId = newReceta.id;
 
-          const { data: insertedDetalles, error: detallesError } =
-            await this.supabase
-              .from('detalles_receta')
-              .insert(detalles)
-              .select('id');
-
-          if (detallesError) {
-            throw new InternalServerErrorException(
-              `Error creando detalles de receta: ${detallesError.message}`,
-            );
-          }
-
-          // Auditoría: Creación de detalles de receta (agrupados)
-          if (insertedDetalles && insertedDetalles.length > 0) {
+            // Auditoría INSERT
             await logAuditEvent(this.supabase, {
-              tabla: 'detalles_receta',
-              registroId: `receta_${newReceta.id}`,
+              tabla: 'receta',
+              registroId: recetaId,
               accion: 'INSERT',
               usuarioId: cita.podologo_id,
               usuarioNombre: nombrePodologo,
-              datosNuevos: { receta_id: newReceta.id, medicamentos: detalles },
+              datosNuevos: {
+                cita_id: citaId,
+                medicamentos: receta.medicamentos.length,
+              },
             });
+          }
+
+          // INSERTAR DETALLES (sea nueva o actualizada)
+          if (recetaId) {
+            const detalles = receta.medicamentos.map((med: any) => ({
+              receta_id: recetaId,
+              medicamento: med.nombre,
+              dosis: med.dosis || null,
+              indicaciones: med.indicaciones || null,
+            }));
+
+            const { error: detallesError } = await this.supabase
+              .from('detalles_receta')
+              .insert(detalles);
+
+            if (detallesError) {
+              throw new InternalServerErrorException(
+                `Error guardando medicamentos: ${detallesError.message}`,
+              );
+            }
           }
         }
       }
     }
+
+
 
     return { message: 'Datos de la cita guardados correctamente' };
   }

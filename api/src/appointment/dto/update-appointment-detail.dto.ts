@@ -23,6 +23,9 @@ class MedicamentoDto {
 
 // DTO para receta completa
 class RecetaDto {
+  @IsOptional()
+  id?: number | string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => MedicamentoDto)

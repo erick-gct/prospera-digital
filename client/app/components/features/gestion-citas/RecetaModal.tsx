@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Trash2, Pill, Save, Syringe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,12 +30,26 @@ interface RecetaModalProps {
     cedula: string
   } | null
   onSave: (medicamentos: Medicamento[]) => void
+  initialData?: Medicamento[]
 }
 
-export function RecetaModal({ open, onOpenChange, paciente, onSave }: RecetaModalProps) {
-  const [medicamentos, setMedicamentos] = useState<Medicamento[]>([
-    { id: "1", nombre: "", dosis: "", indicaciones: "" }
-  ])
+export function RecetaModal({ open, onOpenChange, paciente, onSave, initialData }: RecetaModalProps) {
+  const [medicamentos, setMedicamentos] = useState<Medicamento[]>(
+    initialData && initialData.length > 0 
+      ? initialData.map(m => ({ ...m, id: m.id || Date.now().toString() + Math.random() })) 
+      : [{ id: "1", nombre: "", dosis: "", indicaciones: "" }]
+  )
+
+  // Efecto para actualizar cuando cambia initialData o se abre el modal
+  useEffect(() => {
+     if (open) {
+       if (initialData && initialData.length > 0) {
+          setMedicamentos(initialData.map(m => ({ ...m, id: m.id || Date.now().toString() + Math.random() })))
+       } else {
+          setMedicamentos([{ id: "1", nombre: "", dosis: "", indicaciones: "" }])
+       }
+     }
+  }, [open, initialData])
 
   const addMedicamento = () => {
     setMedicamentos([

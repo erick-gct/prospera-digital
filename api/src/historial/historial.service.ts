@@ -255,8 +255,19 @@ export class HistorialService {
       .eq('cita_id', citaId)
       .order('fecha_subida', { ascending: false });
 
+    // Podólogo
+    let podologo: any = null;
+    if (cita.podologo_id) {
+      const { data: podologoData } = await this.supabase
+        .from('podologo')
+        .select('usuario_id, nombres, apellidos')
+        .eq('usuario_id', cita.podologo_id)
+        .single();
+      podologo = podologoData;
+    }
+
     return {
-      cita: { ...cita, paciente },
+      cita: { ...cita, paciente, podologo },
       evaluacion: evaluacion || null,
       ortesis: ortesis || null,
       recetas: recetasConDetalles,

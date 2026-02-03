@@ -19,7 +19,8 @@ import {
   Save,
   Plus,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Edit
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -105,6 +106,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
     evaluacionVascular: "",
   })
 
+  // --- RESTORED CODE BEGIN ---
   const citaTime = parseISO(cita.fecha_hora_inicio)
   const estadoIdActual = typeof citaEstado === 'string' ? parseInt(String(citaEstado), 10) : citaEstado
   const colors = estadoColors[estadoIdActual] || estadoColors[1]
@@ -181,14 +183,66 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
   useEffect(() => {
     loadDetail()
   }, [loadDetail])
+  // --- RESTORED CODE END ---
 
-  // Guardar receta del modal
+  // Estado de edición de receta
+  const [editingReceta, setEditingReceta] = useState<{
+      type: 'guardada' | 'nueva',
+      index: number,
+      medicamentos: Medicamento[]
+  } | null>(null)
+
+  // ... (previous refs and states)
+
+  // Handle Edit Receta
+  const handleEditReceta = (receta: any, type: 'guardada' | 'nueva', index: number) => {
+      // Mapear medicamentos al formato de RecetaModal
+      const medicamentosFormatted = receta.medicamentos.map((m: any) => ({
+          id: m.id ? String(m.id) : Date.now().toString() + Math.random(),
+          nombre: m.medicamento || m.nombre, // Handle both formats
+          dosis: m.dosis,
+          indicaciones: m.indicaciones
+      }))
+      
+      setEditingReceta({ type, index, medicamentos: medicamentosFormatted })
+      setRecetaModalOpen(true)
+  }
+
+  // Guardar receta del modal (Nueva o Edición)
   const handleSaveReceta = (medicamentos: Medicamento[]) => {
-    const nuevaReceta = {
-      id: Date.now().toString(),
-      medicamentos
+    if (editingReceta) {
+        // ACTUALIZAR EXISTENTE
+        if (editingReceta.type === 'nueva') {
+            const upRecetas = [...recetasNuevas]
+            upRecetas[editingReceta.index] = {
+                ...upRecetas[editingReceta.index],
+                medicamentos
+            }
+            setRecetasNuevas(upRecetas)
+        } else {
+            // Actualizar guardada y marcar como modificada
+            const upRecetas = [...recetasGuardadas] as any[]
+            upRecetas[editingReceta.index] = {
+                ...upRecetas[editingReceta.index],
+                medicamentos: medicamentos.map(m => ({
+                    id: isNaN(Number(m.id)) ? null : Number(m.id), // Keep ID if valid number
+                    medicamento: m.nombre,
+                    dosis: m.dosis,
+                    indicaciones: m.indicaciones
+                })),
+                isModified: true 
+            }
+            setRecetasGuardadas(upRecetas)
+        }
+        setEditingReceta(null)
+    } else {
+        // CREAR NUEVA
+        const nuevaReceta = {
+            id: Date.now().toString(),
+            medicamentos
+        }
+        setRecetasNuevas([...recetasNuevas, nuevaReceta])
     }
-    setRecetasNuevas([...recetasNuevas, nuevaReceta])
     setRecetaModalOpen(false)
   }
 
@@ -197,16 +251,29 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
     setIsSaving(true)
     
     try {
+      // Combinar recetas nuevas y modificadas
+      const recetasPayload = [
+          ...recetasNuevas.map(r => ({
+             medicamentos: r.medicamentos.map(m => ({
+                 nombre: m.nombre,
+                 dosis: m.dosis,
+                 indicaciones: m.indicaciones
+             }))
+          })),
+          ...recetasGuardadas.filter((r: any) => r.isModified).map((r: any) => ({
+              id: r.id, // ID para actualizar
+              medicamentos: r.medicamentos.map((m: any) => ({
+                  nombre: m.medicamento, // Note naming diff
+                  dosis: m.dosis,
+                  indicaciones: m.indicaciones
+              }))
+          }))
+      ]
+
       const payload = {
         observaciones_podologo: observacionesPodologo,
         procedimientos_realizados: procedimientos,
-        recetas: recetasNuevas.map(r => ({
-          medicamentos: r.medicamentos.map(m => ({
-            nombre: m.nombre,
-            dosis: m.dosis,
-            indicaciones: m.indicaciones,
-          }))
-        })),
+        recetas: recetasPayload,
         ortesis: {
           tipo_ortesis: ortesisData.tipoOrtesis || null,
           talla_calzado: ortesisData.talla || null,
@@ -562,15 +629,34 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-muted-foreground">Recetas guardadas</h4>
                   {recetasGuardadas.map((receta, recetaIndex) => (
-                    <div key={receta.id} className="border rounded-lg overflow-hidden">
+                    <div key={receta.id} className="border rounded-lg overflow-hidden relative">
+                      {/* Flag de editado */}
+                      {(receta as any).isModified && (
+                        <div className="bg-amber-100 text-amber-800 text-xs px-2 py-1 flex items-center justify-center gap-1 font-medium text-center">
+                           ⚠ Receta editada. Guarde los cambios generales para aplicar.
+                        </div>
+                      )}
                       <div className="bg-green-50 px-4 py-2 flex items-center justify-between">
                         <span className="font-medium text-sm flex items-center gap-2 text-green-700">
                           <FileText className="h-4 w-4" />
                           Receta #{recetaIndex + 1}
                         </span>
-                        <span className="text-xs text-green-600">
-                          {receta.medicamentos.length} medicamento{receta.medicamentos.length !== 1 && 's'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-green-600">
+                            {receta.medicamentos.length} medicamento{receta.medicamentos.length !== 1 && 's'}
+                            </span>
+                            {isEditable && (
+                                <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-green-700 hover:text-green-800 hover:bg-green-100"
+                                onClick={() => handleEditReceta(receta, 'guardada', recetaIndex)}
+                                title="Editar receta existente"
+                                >
+                                <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                            )}
+                        </div>
                       </div>
                       <div className="p-4">
                         <table className="w-full text-sm">
@@ -608,7 +694,20 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                           <FileText className="h-4 w-4" />
                           Nueva Receta #{recetaIndex + 1}
                         </span>
-                        <Badge variant="outline" className="text-amber-600 border-amber-300">Pendiente</Badge>
+                         <div className="flex items-center gap-2">
+                           <Badge variant="outline" className="text-amber-600 border-amber-300">Pendiente</Badge>
+                             {isEditable && (
+                                <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+                                onClick={() => handleEditReceta(receta, 'nueva', recetaIndex)}
+                                title="Editar receta nueva"
+                                >
+                                <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                            )}
+                         </div>
                       </div>
                       <div className="p-4">
                         <table className="w-full text-sm">
@@ -675,9 +774,13 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
       {/* Modal de Receta */}
       <RecetaModal 
         open={recetaModalOpen} 
-        onOpenChange={setRecetaModalOpen}
+        onOpenChange={(open) => {
+            setRecetaModalOpen(open);
+            if(!open) setEditingReceta(null);
+        }}
         paciente={cita.paciente}
         onSave={handleSaveReceta}
+        initialData={editingReceta ? editingReceta.medicamentos : undefined}
       />
     </div>
   )
