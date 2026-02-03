@@ -57,6 +57,11 @@ export class AppointmentController {
     return this.appointmentService.getAppointmentDetail(parseInt(id, 10));
   }
 
+  @Get(':id/timeline')
+  getTimeline(@Param('id') id: string) {
+    return this.appointmentService.getTimeline(parseInt(id, 10));
+  }
+
   @Patch(':id/detail')
   updateDetail(
     @Param('id') id: string,

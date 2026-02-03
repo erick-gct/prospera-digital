@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { Clock, User, FileText, ClipboardEdit, CalendarX, CalendarClock, Loader2 } from "lucide-react"
+import { Clock, User, FileText, ClipboardEdit, CalendarX, CalendarClock, Loader2, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { ApiRoutes } from "@/lib/api-routes"
 import { RescheduleModal } from "./RescheduleModal"
+import { AppointmentDetailsDialog } from "./AppointmentDetailsDialog"
 
 // Tipo de cita para gestión
 export interface CitaGestion {
@@ -85,8 +86,12 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
     accion: string
   }>({ open: false, citaId: "", nombrePaciente: "", nuevoEstado: 0, accion: "" })
 
-  // Estado para modal de reagendamiento
   const [rescheduleModal, setRescheduleModal] = useState<{
+    open: boolean
+    cita: CitaGestion | null
+  }>({ open: false, cita: null })
+
+  const [detailsDialog, setDetailsDialog] = useState<{
     open: boolean
     cita: CitaGestion | null
   }>({ open: false, cita: null })
@@ -130,6 +135,11 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
       nuevoEstado,
       accion: acciones[nuevoEstado] || "cambiar estado",
     })
+  }
+
+  const handleViewDetails = (cita: CitaGestion, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDetailsDialog({ open: true, cita })
   }
 
   if (isLoading) {
@@ -210,29 +220,33 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                     )}
                   </div>
 
-                  {/* Acciones en dos filas */}
+                  {/* Acciones */}
                   <div className="flex flex-col gap-2 shrink-0">
-                    {/* Fila 1: Botón principal */}
                     <Button
                       onClick={() => onSelectCita(cita)}
                       className="gap-2 w-full"
                       variant={estadoId === 3 ? "outline" : "default"}
                       disabled={isUpdating || estadoId === 3}
-                      title={estadoId === 3 ? "No se puede acceder a citas canceladas" : "Acceder a la cita"}
+                      title={estadoId === 3 ? "No se puede acceder a citas canceladas" : "Acceder a la Cita"}
                     >
                       <ClipboardEdit className="h-4 w-4" />
                       {estadoId === 3 ? "No disponible" : "Acceder a la Cita"}
                     </Button>
 
-                    {/* Fila 2: Acciones secundarias */}
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => handleViewDetails(cita, e)}
+                        title="Ver Detalles y Trazabilidad"
+                      >
+                        <Eye className="h-4 w-4 text-slate-600" />
+                      </Button>
 
-
-                      {/* Select de estado */}
                       {estadoId !== 3 && (
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-muted-foreground">Estado</span>
-                          <Select
+                           <Select
                             value={estadoId.toString()}
                             onValueChange={(value) => openConfirmDialog(cita, parseInt(value, 10))}
                             disabled={isUpdating}
@@ -255,25 +269,19 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                         </div>
                       )}
 
-                                            {/* Botón de reagendar (solo si está reservada) */}
                       {estadoId === 1 && (
-         
-                          <Button
+                        <Button
                           variant="outline"
                           size="sm"
-                          className="gap-1 h-8 text-xs flex-1"
+                          className="h-8 w-8 p-0"
                           onClick={() => setRescheduleModal({ open: true, cita })}
                           disabled={isUpdating}
                           title="Reagendar cita"
                         >
                           <CalendarClock className="h-4 w-4" />
-                          <span className="hidden sm:inline">Reagendar</span>
                         </Button>
-                    
-                          
                       )}
 
-                      {/* Botón cancelar */}
                       {estadoId !== 3 && (
                         <Button
                           variant="ghost"
@@ -295,8 +303,7 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
         </div>
       </div>
 
-      {/* Alert Dialog */}
-      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ ...confirmDialog, open: false })}>
+       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ ...confirmDialog, open: false })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -328,7 +335,6 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de Reagendamiento */}
       {rescheduleModal.cita && (
         <RescheduleModal
           open={rescheduleModal.open}
@@ -345,6 +351,12 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
           userRole="podologo"
         />
       )}
+
+      <AppointmentDetailsDialog 
+        open={detailsDialog.open}
+        onOpenChange={(open) => setDetailsDialog({ ...detailsDialog, open })}
+        cita={detailsDialog.cita}
+      />
     </>
   )
 }

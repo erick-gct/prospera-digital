@@ -166,6 +166,7 @@ export class HistorialService {
         observaciones_podologo,
         procedimientos_realizados,
         estado_id,
+        podologo_id, 
         estado_cita (id, nombre)
       `,
       )

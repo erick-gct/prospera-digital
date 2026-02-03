@@ -951,6 +951,77 @@ export class AppointmentService {
   }
 
   /**
+   * Obtiene el historial (timeline) de cambios de una cita
+   */
+  async getTimeline(citaId: number) {
+    const { data: logs, error } = await this.supabase
+      .from('auditoria_cambios')
+      .select('*')
+      .eq('tabla_afectada', 'cita')
+      .eq('registro_id', String(citaId))
+      .order('fecha_hora', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching audit logs:', error);
+      throw new InternalServerErrorException('Error recuperando historial');
+    }
+
+    if (!logs) return [];
+
+    // Mapeo amigable
+    const timeline = logs.map((log) => {
+      let titulo = 'Actualización';
+      let descripcion = 'Se realizaron cambios en la cita';
+      let icon = 'edit';
+
+      const datosNuevos = log.datos_nuevos as any;
+      const datosAnteriores = log.datos_anteriores as any;
+      const usuarioNombre = datosNuevos?._audit_usuario_nombre || 'Sistema';
+
+      if (log.accion === 'INSERT') {
+        titulo = 'Cita Creada';
+        descripcion = `Cita reservada por ${usuarioNombre}`;
+        icon = 'calendar-check';
+      } else if (log.accion === 'UPDATE') {
+        // Detectar tipo de cambio
+        if (datosNuevos?.estado_id && datosAnteriores?.estado_id !== datosNuevos.estado_id) {
+          // Cambio de Estado
+          const estados = { 1: 'Reservada', 2: 'Completada', 3: 'Cancelada' };
+          const nuevoEstado = estados[datosNuevos.estado_id] || 'Desconocido';
+          titulo = 'Cambio de Estado';
+          descripcion = `Estado cambiado a "${nuevoEstado}" por ${usuarioNombre}`;
+
+          if (datosNuevos.estado_id === 2) icon = 'check-circle';
+          if (datosNuevos.estado_id === 3) icon = 'x-circle';
+        } else if (datosNuevos?.fecha_hora_inicio && datosAnteriores?.fecha_hora_inicio !== datosNuevos.fecha_hora_inicio) {
+          // Refechado
+          titulo = 'Cita Reprogramada';
+          descripcion = `Reprogramada por ${usuarioNombre}`;
+          icon = 'clock';
+        } else if (datosNuevos?.motivo_cita && datosAnteriores?.motivo_cita !== datosNuevos.motivo_cita) {
+          titulo = 'Motivo Actualizado';
+          descripcion = `Motivo cambiado por ${usuarioNombre}`;
+        }
+      }
+
+      return {
+        id: log.id,
+        fecha: log.fecha_hora,
+        titulo,
+        descripcion,
+        icon,
+        usuario: usuarioNombre,
+        detalles: {
+          antes: datosAnteriores,
+          despues: datosNuevos
+        }
+      };
+    });
+
+    return timeline;
+  }
+
+  /**
    * Subir un documento clínico para una cita
    */
   async uploadDocument(

@@ -50,6 +50,8 @@ export const ApiRoutes = {
       `${API_BASE_URL}/appointments/${citaId}/status`,
     reschedule: (citaId: string | number) =>
       `${API_BASE_URL}/appointments/${citaId}/reschedule`,
+    timeline: (citaId: string | number) =>
+      `${API_BASE_URL}/appointments/${citaId}/timeline`,
     // Documentos
     getDocuments: (citaId: string | number) =>
       `${API_BASE_URL}/appointments/${citaId}/documents`,
