@@ -146,6 +146,7 @@ export const ApiRoutes = {
         const queryString = params.toString();
         return `${API_BASE_URL}/admin/usuarios${queryString ? `?${queryString}` : ''}`;
       },
+      changePassword: (id: string) => `${API_BASE_URL}/admin/usuarios/${id}/password`,
     },
     // Citas Globales
     citas: {

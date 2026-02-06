@@ -70,6 +70,9 @@ export default function PodologoBI({ data }: PodologoBIProps) {
                     style={{ width: `${data.tasaRetencion}%` }}
                 />
             </div>
+            <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                Aproximadamente el <span className="font-medium text-indigo-600">{data.tasaRetencion}%</span> de tus pacientes han regresado a tu consultorio por otra cita.
+            </p>
         </CardContent>
       </Card>
 

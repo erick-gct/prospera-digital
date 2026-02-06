@@ -85,9 +85,11 @@ export class PatientService {
 
   // 3. Actualizar paciente (Sin tocar cédula)
   async update(id: string, updatePatientDto: UpdatePatientDto) {
-    const updates = {
+    const updates: any = {
       nombres: updatePatientDto.nombres,
       apellidos: updatePatientDto.apellidos,
+      cedula: updatePatientDto.cedula,
+      // email: updatePatientDto.email, // El email se actualiza en Auth, no aquí (o ambos si tienes columna email)
       fecha_nacimiento: updatePatientDto.fechaNacimiento,
       pais_id: updatePatientDto.paisId,
       ciudad: updatePatientDto.ciudad,
@@ -96,6 +98,23 @@ export class PatientService {
       tipo_sangre_id: updatePatientDto.tipoSangreId,
       enfermedades: updatePatientDto.enfermedades,
     };
+
+    // Si viene email, actualizamos también la tabla paciente (si tienes columna email allí) y AUTH
+    if (updatePatientDto.email) {
+      updates.email = updatePatientDto.email;
+
+      // Actualizar en Supabase Auth
+      const { error: authError } = await this.supabase.auth.admin.updateUserById(
+        id,
+        { email: updatePatientDto.email, email_confirm: true }
+      );
+
+      if (authError) {
+        console.error('Error updating auth email:', authError);
+        // Opcional: lanzar error o continuar
+        // throw new InternalServerErrorException(`Error actualizando emailAuth: ${authError.message}`);
+      }
+    }
 
     Object.keys(updates).forEach(
       (key) =>

@@ -372,6 +372,43 @@ export class DashboardService {
       }
     }
 
+    // --- NUEVO: Próximas 2 citas (Estado Reservada = 1) ---
+    const { data: proximasCitasData } = await this.supabase
+      .from('cita')
+      .select('id, fecha_hora_inicio, motivo_cita, paciente_id')
+      .eq('podologo_id', userId)
+      .eq('estado_id', 1) // Solo Reservadas
+      .gte('fecha_hora_inicio', new Date().toISOString()) // Futuras
+      .order('fecha_hora_inicio', { ascending: true }) // Las más cercanas primero
+      .limit(2);
+
+    const proximasCitas: {
+      id: number;
+      fecha: string;
+      motivo: string;
+      paciente: string;
+    }[] = [];
+
+    if (proximasCitasData) {
+      for (const cita of proximasCitasData) {
+        let nombre = 'Paciente';
+        if (cita.paciente_id) {
+          const { data: p } = await this.supabase
+            .from('paciente')
+            .select('nombres, apellidos')
+            .eq('usuario_id', cita.paciente_id)
+            .single();
+          if (p) nombre = `${p.nombres} ${p.apellidos}`;
+        }
+        proximasCitas.push({
+          id: cita.id,
+          fecha: cita.fecha_hora_inicio,
+          motivo: cita.motivo_cita || 'Sin motivo',
+          paciente: nombre
+        });
+      }
+    }
+
     // 5. Último paciente atendido (última cita completada)
     const { data: ultimaCitaCompletada } = await this.supabase
       .from('cita')
@@ -610,6 +647,7 @@ export class DashboardService {
       recetasMes,
       citasHoy: citasHoy || 0,
       citasHoyDetalles,
+      proximasCitas, // NUEVO CAMPO
       ultimaCitaModificada: ultimaCitaModificada
         ? {
           ...ultimaCitaModificada,

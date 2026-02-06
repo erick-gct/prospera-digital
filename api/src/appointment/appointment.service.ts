@@ -108,7 +108,7 @@ export class AppointmentService {
     // Buscamos el nombre del podólogo
     const { data: podologo } = await this.supabase
       .from('podologo')
-      .select('nombres, apellidos')
+      .select('nombres, apellidos, email')
       .eq('usuario_id', podologoId)
       .single();
 
@@ -149,6 +149,7 @@ export class AppointmentService {
         nombrePodologo,
         nuevaCita.id,
         createAppointmentDto.userId,
+        podologo?.email || undefined,
       );
     }
 
@@ -790,7 +791,7 @@ export class AppointmentService {
       // Obtener datos del podólogo
       const { data: podologo } = await this.supabase
         .from('podologo')
-        .select('nombres, apellidos')
+        .select('nombres, apellidos, email')
         .eq('usuario_id', cita.podologo_id)
         .single();
 
@@ -820,6 +821,7 @@ export class AppointmentService {
           null, // Sin motivo específico por ahora
           citaId,
           cita.paciente_id,
+          podologo?.email || undefined,
         );
       }
     }
@@ -865,6 +867,26 @@ export class AppointmentService {
         if (diffHoras < 24) {
           throw new BadRequestException(
             'No se puede reagendar una cita con menos de 24 horas de anticipación. Por favor, comunínquese con el consultorio.'
+          );
+        }
+
+        // --- VALIDACIÓN DE COOLDOWN (24 Horas entre reagendamientos) ---
+        // Verificar si el paciente ya reagendó esta cita en las últimas 24 horas
+        const limiteCooldown = new Date(ahora.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: ultimosCambios } = await this.supabase
+          .from('auditoria_cambios')
+          .select('fecha_hora')
+          .eq('tabla_afectada', 'cita')
+          .eq('registro_id', String(citaId))
+          .eq('accion', 'UPDATE')
+          .eq('usuario_id', userId)
+          .gte('fecha_hora', limiteCooldown)
+          .limit(1);
+
+        if (ultimosCambios && ultimosCambios.length > 0) {
+          throw new BadRequestException(
+            'Solamente puedes reprogramar tu cita una vez cada 24 horas. Por favor espera antes de intentar nuevamente.'
           );
         }
       }
@@ -922,7 +944,7 @@ export class AppointmentService {
 
     const { data: podologo } = await this.supabase
       .from('podologo')
-      .select('nombres, apellidos')
+      .select('nombres, apellidos, email')
       .eq('usuario_id', cita.podologo_id)
       .single();
 
@@ -975,6 +997,7 @@ export class AppointmentService {
         nombrePodologo,
         citaId,
         cita.paciente_id,
+        podologo?.email || undefined,
       );
     }
 

@@ -40,9 +40,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import { ApiRoutes } from "@/lib/api-routes";
 import { AdminUserDetailsDialog } from "./AdminUserDetailsDialog";
+import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { ProfileEditDialog } from "../perfil/ProfileEditDialog"; // Importar componente
+import { KeyRound, Pencil } from "lucide-react"; // Importar icono Pencil
 
 interface Usuario {
   usuario_id: string;
@@ -55,7 +56,15 @@ interface Usuario {
   estado_nombre: string;
   estado_activo: boolean;
   fecha_creacion: string;
+  // Campos adicionales para edición (vienen del backend)
+  fecha_nacimiento?: string;
+  pais_id?: number;
+  tipo_sangre_id?: number;
+  ciudad?: string;
+  direccion?: string;
+  enfermedades?: string;
   paises?: { nombre: string } | null;
+  tipos_sangre?: { nombre: string } | null;
 }
 
 interface AdminUsersTableProps {
@@ -72,6 +81,12 @@ export function AdminUsersTable({
   const [selectedUser, setSelectedUser] = useState<Usuario | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
+  // Estados para cambio de contraseña
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+  
+  // Estados para editar usuario
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   // Estados para desactivación
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -83,6 +98,16 @@ export function AdminUsersTable({
   const handleViewDetails = (user: Usuario) => {
     setSelectedUser(user);
     setIsDetailsOpen(true);
+  };
+
+  const handlePasswordClick = (user: Usuario) => {
+    setSelectedUser(user);
+    setIsPasswordOpen(true);
+  };
+
+  const handleEditClick = (user: Usuario) => {
+    setSelectedUser(user);
+    setIsEditOpen(true);
   };
 
   const handleDeactivateClick = (user: Usuario) => {
@@ -269,9 +294,23 @@ export function AdminUsersTable({
                           Ver información
                         </DropdownMenuItem>
 
+                        <DropdownMenuItem
+                          onClick={() => handleEditClick(user)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar Usuario
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => handlePasswordClick(user)}
+                        >
+                          <KeyRound className="mr-2 h-4 w-4" />
+                          Cambiar Contraseña
+                        </DropdownMenuItem>
+                        
                         <DropdownMenuSeparator />
 
-                        {/* Opciones de desactivar/activar para TODOS los usuarios */}
+                        {/* Opciones de desactivar/activar parTODOS los usuarios */}
                         {user.estado_activo ? (
                           <DropdownMenuItem
                             className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
@@ -304,6 +343,29 @@ export function AdminUsersTable({
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         userId={selectedUser?.usuario_id || null}
+      />
+
+      {/* Modal de Edición de Perfil */}
+        {selectedUser && (
+        <ProfileEditDialog
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          data={selectedUser as any} // Casting as any to matches Paciente | Podologo loosely
+          role={selectedUser.tipo_usuario}
+          onSuccess={() => {
+            onDataUpdate()
+            setIsEditOpen(false)
+          }}
+          isAdmin={true}
+        />
+        )}
+
+      {/* Modal de Cambio de Contraseña */}
+      <ChangePasswordDialog
+        open={isPasswordOpen}
+        onOpenChange={setIsPasswordOpen}
+        userId={selectedUser?.usuario_id || null}
+        userName={selectedUser ? `${selectedUser.nombres} ${selectedUser.apellidos}` : null}
       />
 
       {/* Diálogo de Desactivar */}

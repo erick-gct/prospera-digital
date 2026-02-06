@@ -808,6 +808,65 @@ export class AdminService {
     }
   }
 
+  /**
+   * Cambiar contraseña de un usuario (Admin)
+   */
+  async changeUserPassword(userId: string, newPassword: string) {
+    try {
+      // 1. Verificar que el usuario existe (en paciente o podólogo)
+      const user = await this.findUserById(userId);
+      if (!user) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      // 2. Actualizar contraseña en Auth
+      const { error: updateError } = await this.supabase.auth.admin.updateUserById(
+        userId,
+        { password: newPassword }
+      );
+
+      if (updateError) {
+        throw new InternalServerErrorException(
+          `Error al actualizar contraseña: ${updateError.message}`
+        );
+      }
+
+      // 3. Obtener nombre del usuario objetivo para el log
+      const targetName =
+        user.nombres && user.apellidos
+          ? `${user.nombres} ${user.apellidos}`
+          : user.email;
+
+      // 4. Log de auditoría
+      const { error: auditError } = await this.supabase
+        .from('auditoria_cambios')
+        .insert({
+          tabla_afectada: 'auth.users',
+          registro_id: userId,
+          accion: 'UPDATE',
+          usuario_id: null, // Admin
+          datos_anteriores: null,
+          datos_nuevos: { action: 'password_reset_by_admin', target_user: targetName },
+          fecha_hora: new Date().toISOString(),
+        });
+
+      if (auditError) {
+        console.error('Error writing audit log for password change:', auditError);
+      }
+
+      return {
+        success: true,
+        message: 'Contraseña actualizada correctamente',
+        usuario: targetName
+      };
+
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      console.error('Error changing user password:', error);
+      throw new InternalServerErrorException('Error al cambiar contraseña');
+    }
+  }
+
   // =====================================================
   // GESTIÓN DE DOCUMENTOS
   // =====================================================

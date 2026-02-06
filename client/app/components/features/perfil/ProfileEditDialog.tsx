@@ -61,13 +61,16 @@ interface ProfileEditDialogProps {
   data: Paciente | Podologo | null
   role: string | null
   onSuccess: () => void
+  isAdmin?: boolean // Nuevo prop opcional
 }
 
-export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: ProfileEditDialogProps) {
+export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAdmin = false }: ProfileEditDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const isPaciente = role === "PACIENTE"
+
+
 
   // Catálogos
   const [paisesOptions, setPaisesOptions] = useState<ComboboxOption[]>([])
@@ -174,11 +177,17 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
       const payload: any = {
          nombres: formData.nombres,
          apellidos: formData.apellidos,
-         // email: formData.email, // Depende si permites editar email en backend
+         // email: formData.email, // UPDATE: Se envía si es Admin
          telefono: formData.telefono,
          fechaNacimiento: formData.fechaNacimiento ? formData.fechaNacimiento.toISOString() : null,
          paisId: formData.paisId,
          tipoSangreId: formData.tipoSangreId,
+      }
+
+      // Si es admin, añadimos campos sensibles
+      if (isAdmin) {
+          payload.cedula = formData.cedula;
+          payload.email = formData.email;
       }
 
       // Si es paciente, enviamos los campos extra
@@ -250,10 +259,16 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
                     <Label className="text-xs">Apellidos</Label>
                     <Input className="h-8" name="apellidos" value={formData.apellidos} onChange={handleChange} required />
                  </div>
-                 <div className="space-y-1.5">
-                    <Label className="text-xs">Cédula</Label>
-                    <Input value={formData.cedula} disabled className="h-8 bg-muted text-muted-foreground cursor-not-allowed border-dashed" />
-                 </div>
+                  <div className="space-y-1.5">
+                     <Label className="text-xs">Cédula</Label>
+                     <Input 
+                        name="cedula" // Añadir name
+                        value={formData.cedula} 
+                        onChange={handleChange}
+                        disabled={!isAdmin} 
+                        className={cn("h-8", !isAdmin && "bg-muted text-muted-foreground cursor-not-allowed border-dashed")} 
+                      />
+                  </div>
                  <div className="space-y-1.5 flex flex-col">
                     <Label className="text-xs">Fecha de Nacimiento</Label>
                     <Popover>
@@ -290,11 +305,17 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
                  <MapPin className="h-3 w-3" /> Contacto
               </h4>
               <div className="grid gap-3">
-                 <div className="space-y-1.5">
-                    <Label className="text-xs">Email</Label>
-                    {/* Asumimos email de lectura por seguridad, o editable según prefieras */}
-                    <Input className="h-8" name="email" value={formData.email} onChange={handleChange} disabled className="bg-muted text-muted-foreground" />
-                 </div>
+                  <div className="space-y-1.5">
+                     <Label className="text-xs">Email</Label>
+                     {/* Asumimos email de lectura por seguridad, o editable según prefieras */}
+                     <Input 
+                        className={cn("h-8", !isAdmin && "bg-muted text-muted-foreground")} 
+                        name="email" 
+                        value={formData.email} 
+                        onChange={handleChange} 
+                        disabled={!isAdmin} 
+                      />
+                  </div>
                  <div className="space-y-1.5">
                     <Label className="text-xs">Teléfono</Label>
                     <Input className="h-8" name="telefono" value={formData.telefono} onChange={handleChange} required />
@@ -365,16 +386,18 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess }: Pr
 
         <DialogFooter className="px-6 py-3 border-t bg-gray-50">
           <div className="flex w-full justify-between items-center">
-             <Button 
-               type="button" 
-               variant="outline" 
-               size="sm" 
-               onClick={() => setShowPasswordChange(true)}
-               className="gap-2"
-             >
-               <Lock className="h-3 w-3" />
-               Cambiar Contraseña
-             </Button>
+             {!isAdmin ? (
+               <Button 
+                 type="button" 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => setShowPasswordChange(true)}
+                 className="gap-2"
+               >
+                 <Lock className="h-3 w-3" />
+                 Cambiar Contraseña
+               </Button>
+             ) : <div></div>}
              <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isLoading}>Cancelar</Button>
                 <Button type="submit" form="edit-profile-form" size="sm" disabled={isLoading} className="gap-2">

@@ -55,9 +55,22 @@ export class PodologoService {
     const updates = {
       nombres: updatePodologoDto.nombres,
       apellidos: updatePodologoDto.apellidos,
+      cedula: updatePodologoDto.cedula,
       pais_id: updatePodologoDto.paisId,
       tipo_sangre_id: updatePodologoDto.tipoSangreId,
-    };
+    } as any;
+
+    if (updatePodologoDto.email) {
+      updates.email = updatePodologoDto.email;
+      // Actualizar en Supabase Auth
+      const { error: authError } = await this.supabase.auth.admin.updateUserById(
+        id,
+        { email: updatePodologoDto.email, email_confirm: true }
+      );
+      if (authError) {
+        console.error('Error updating podologo auth email:', authError);
+      }
+    }
 
     // Limpiar undefined
     Object.keys(updates).forEach(

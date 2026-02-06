@@ -27,7 +27,7 @@ export class MailService {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     this.fromAddress =
       this.configService.get<string>('MAIL_FROM_ADDRESS') ||
-      'onboarding@resend.dev';
+      'team@prospira.vip';
 
     if (!apiKey) {
       console.warn(
@@ -60,27 +60,24 @@ export class MailService {
    * Envía un correo genérico
    * NOTA: Si existe MAIL_PRUEBA en .env, se usará ese email como destinatario para pruebas
    */
-  async sendEmail(to: string, subject: string, htmlContent: string) {
+  async sendEmail(to: string | string[], subject: string, htmlContent: string) {
     try {
-      // MODO PRUEBA: Si existe MAIL_PRUEBA, usar ese email en lugar del dinámico
-      const mailPrueba = this.configService.get<string>('MAIL_PRUEBA');
-      const destinatario = mailPrueba || to;
+      // MODO PRUEBA: (Desactivado por código para producción)
+      // const mailPrueba = this.configService.get<string>('MAIL_PRUEBA');
 
-      if (mailPrueba) {
-        console.log(
-          `(Mail) MODO PRUEBA: Enviando a ${mailPrueba} (original: ${to})`,
-        );
-      }
+      const destinatarios = Array.isArray(to) ? to : [to];
+
+      console.log(`(Mail) Enviando a: ${destinatarios.join(', ')}`);
 
       const data = await this.resend.emails.send({
         from: `Prospera Digital <${this.fromAddress}>`,
-        to: [destinatario],
+        to: destinatarios,
         subject: subject,
         html: htmlContent,
       });
 
       console.log(
-        `(Mail) Correo enviado a ${destinatario}. ID: ${data.data?.id}`,
+        `(Mail) Correo enviado a ${destinatarios.join(', ')}. ID: ${data.data?.id}`,
       );
       return { success: true, data };
     } catch (error) {
@@ -130,6 +127,63 @@ export class MailService {
     `;
   }
 
+  /**
+   * Plantilla HTML específica para PODÓLOGOS (Más técnica/administrativa)
+   */
+  private getPodologistHtmlTemplate(
+    title: string,
+    body: string,
+    patientName: string,
+    headerColor: string = '#1e293b', // Slate-800 for more professional look
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 20px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+          .header { background-color: ${headerColor}; color: white; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; }
+          .header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+          .badge { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+          .content { padding: 25px; color: #334155; line-height: 1.5; font-size: 14px; }
+          .card { background: #f1f5f9; border-left: 4px solid ${headerColor}; padding: 15px; margin: 15px 0; border-radius: 0 4px 4px 0; }
+          .patient-info { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
+          .avatar { width: 32px; height: 32px; background: #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #475569; }
+          .footer { background-color: #f8fafc; padding: 15px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+          .btn-action { display: inline-block; padding: 8px 16px; background-color: #0f172a; color: white; text-decoration: none; border-radius: 4px; font-weight: 500; font-size: 13px; margin-top: 10px;}
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${title}</h1>
+            <span class="badge">Notificación del Sistema</span>
+          </div>
+          <div class="content">
+            <div class="patient-info">
+              <div class="avatar">${patientName.charAt(0).toUpperCase()}</div>
+              <div>
+                <div style="font-weight: 600; color: #0f172a;">${patientName}</div>
+                <div style="font-size: 12px; color: #64748b;">Paciente</div>
+              </div>
+            </div>
+            
+            ${body}
+
+            <center>
+             <a href="http://localhost:3000/gestion-citas" class="btn-action">Gestionar en Plataforma</a>
+            </center>
+          </div>
+          <div class="footer">
+            <p>Este es un mensaje automático del sistema de gestión Prospera Digital.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   // --- MÉTODOS PREDEFINIDOS PARA TU SISTEMA ---
 
   /**
@@ -161,9 +215,11 @@ export class MailService {
     nombrePodologo: string,
     citaId?: number,
     destinatarioId?: string,
+    podologoEmail?: string,
   ) {
     const fechaCreacion = new Date().toISOString();
 
+    // 1. Correo al PACIENTE (Formato Amigable)
     const title = 'Confirmación de Cita';
     const body = `
       <p>Hola <strong>${nombrePaciente}</strong>,</p>
@@ -180,28 +236,54 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body, '#2A9D8F');
-    const result = await this.sendEmail(
+    const resultPaciente = await this.sendEmail(
       email,
       'Cita Confirmada - Prospera Digital',
       html,
     );
 
-    // Registrar en log si tenemos la info necesaria
+    // 2. Correo al PODÓLOGO (Formato Profesional)
+    if (podologoEmail) {
+      const bodyPodologo = `
+        <p>Se ha agendado una nueva cita.</p>
+        <div class="card">
+          <div style="margin-bottom: 5px;"><strong>📅 Fecha:</strong> ${fecha}</div>
+          <div style="margin-bottom: 5px;"><strong>🕐 Hora:</strong> ${hora}</div>
+          <div><strong>📌 Estado:</strong> Reservada</div>
+        </div>
+        <p style="font-size: 13px;">Revise la agenda para más detalles.</p>
+       `;
+
+      const htmlPodologo = this.getPodologistHtmlTemplate(
+        'Nueva Cita Agendada',
+        bodyPodologo,
+        nombrePaciente,
+        '#2A9D8F' // Teal para success
+      );
+
+      await this.sendEmail(
+        podologoEmail,
+        `Nueva Cita: ${nombrePaciente} - ${fecha} ${hora}`,
+        htmlPodologo
+      );
+    }
+
+    // Registrar en log (Preferiblemente del paciente que es el principal)
     if (citaId && destinatarioId) {
       await this.logNotification({
         cita_id: citaId,
         destinatario_id: destinatarioId,
         tipo_notificacion: 'reserva',
-        estado: result.success ? 'enviado' : 'fallido',
+        estado: resultPaciente.success ? 'enviado' : 'fallido',
         fecha_creacion: fechaCreacion,
-        fecha_envio: result.success ? new Date().toISOString() : null,
-        error_mensaje: result.success
+        fecha_envio: resultPaciente.success ? new Date().toISOString() : null,
+        error_mensaje: resultPaciente.success
           ? null
-          : result.error || 'Error desconocido',
+          : resultPaciente.error || 'Error desconocido',
       });
     }
 
-    return result;
+    return resultPaciente;
   }
 
   /**
@@ -217,9 +299,11 @@ export class MailService {
     nombrePodologo: string,
     citaId: number,
     destinatarioId: string,
+    podologoEmail?: string,
   ) {
     const fechaCreacion = new Date().toISOString();
 
+    // 1. Correo Paciente
     const title = 'Cita Reagendada';
     const body = `
       <p>Hola <strong>${nombrePaciente}</strong>,</p>
@@ -239,26 +323,55 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body, '#f59e0b');
-    const result = await this.sendEmail(
+    const resultPaciente = await this.sendEmail(
       email,
       'Cita Reagendada - Prospera Digital',
       html,
     );
+
+    // 2. Correo Podólogo
+    if (podologoEmail) {
+      const bodyPodologo = `
+         <p>Una cita existente ha sido <strong>reprogramada</strong>.</p>
+         <div class="card" style="border-left-color: #f59e0b;">
+           <div style="margin-bottom: 8px;"><strong>📅 Nuevo Horario:</strong></div>
+           <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">
+             ${fechaNueva} - ${horaNueva}
+           </div>
+           <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 13px; color: #64748b;">
+             <span style="text-decoration: line-through;">Anterior: ${fechaAnterior} ${horaAnterior}</span>
+           </div>
+         </div>
+        `;
+
+      const htmlPodologo = this.getPodologistHtmlTemplate(
+        'Cita Reprogramada',
+        bodyPodologo,
+        nombrePaciente,
+        '#fbbf24' // Amber
+      );
+
+      await this.sendEmail(
+        podologoEmail,
+        `REAGENDADA: ${nombrePaciente} - Nueva: ${fechaNueva} ${horaNueva}`,
+        htmlPodologo
+      );
+    }
 
     // Registrar en log
     await this.logNotification({
       cita_id: citaId,
       destinatario_id: destinatarioId,
       tipo_notificacion: 'reagendamiento',
-      estado: result.success ? 'enviado' : 'fallido',
+      estado: resultPaciente.success ? 'enviado' : 'fallido',
       fecha_creacion: fechaCreacion,
-      fecha_envio: result.success ? new Date().toISOString() : null,
-      error_mensaje: result.success
+      fecha_envio: resultPaciente.success ? new Date().toISOString() : null,
+      error_mensaje: resultPaciente.success
         ? null
-        : result.error || 'Error desconocido',
+        : resultPaciente.error || 'Error desconocido',
     });
 
-    return result;
+    return resultPaciente;
   }
 
   /**
@@ -273,9 +386,11 @@ export class MailService {
     motivoCancelacion: string | null,
     citaId: number,
     destinatarioId: string,
+    podologoEmail?: string,
   ) {
     const fechaCreacion = new Date().toISOString();
 
+    // 1. Correo Paciente
     const title = 'Cita Cancelada';
     const body = `
       <p>Hola <strong>${nombrePaciente}</strong>,</p>
@@ -295,25 +410,51 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body, '#ef4444');
-    const result = await this.sendEmail(
+    const resultPaciente = await this.sendEmail(
       email,
       'Cita Cancelada - Prospera Digital',
       html,
     );
+
+    // 2. Correo Podólogo
+    if (podologoEmail) {
+      const bodyPodologo = `
+         <p>Una cita ha sido <strong>CANCELADA</strong>.</p>
+         <div class="card" style="border-left-color: #ef4444; background: #fef2f2;">
+           <div style="margin-bottom: 5px;"><strong>📅 Fecha Original:</strong> ${fecha}</div>
+           <div style="margin-bottom: 5px;"><strong>🕐 Hora Original:</strong> ${hora}</div>
+           ${motivoCancelacion ? `<div style="margin-top: 10px; padding-top: 5px; border-top: 1px dashed #fca5a5;"><strong>Motivo:</strong> ${motivoCancelacion}</div>` : ''}
+         </div>
+         <p style="font-size: 13px;">El horario ha quedado libre en su agenda.</p>
+        `;
+
+      const htmlPodologo = this.getPodologistHtmlTemplate(
+        'Cita Cancelada',
+        bodyPodologo,
+        nombrePaciente,
+        '#ef4444' // Red
+      );
+
+      await this.sendEmail(
+        podologoEmail,
+        `CANCELADA: ${nombrePaciente} - ${fecha}`,
+        htmlPodologo
+      );
+    }
 
     // Registrar en log
     await this.logNotification({
       cita_id: citaId,
       destinatario_id: destinatarioId,
       tipo_notificacion: 'cancelacion',
-      estado: result.success ? 'enviado' : 'fallido',
+      estado: resultPaciente.success ? 'enviado' : 'fallido',
       fecha_creacion: fechaCreacion,
-      fecha_envio: result.success ? new Date().toISOString() : null,
-      error_mensaje: result.success
+      fecha_envio: resultPaciente.success ? new Date().toISOString() : null,
+      error_mensaje: resultPaciente.success
         ? null
-        : result.error || 'Error desconocido',
+        : resultPaciente.error || 'Error desconocido',
     });
 
-    return result;
+    return resultPaciente;
   }
 }

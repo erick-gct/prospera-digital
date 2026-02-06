@@ -88,6 +88,12 @@ interface DashboardData {
     semanalHeatmap: { day: string; hour: number; value: number }[];
     tasaRetencion: number;
   }
+  proximasCitas?: {
+    id: number
+    fecha: string
+    motivo: string
+    paciente: string
+  }[]
 }
 
 const chartConfig = {
@@ -105,22 +111,13 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-// Generar opciones de meses (12 pasados + 6 futuros)
+// Generar opciones de meses (Mes actual + 6 anteriores)
 function generateMonthOptions() {
   const options = []
   const now = new Date()
-  // 6 meses futuros
-  for (let i = 6; i >= 1; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() + i, 1)
-    options.push({
-      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: format(date, "MMMM yyyy", { locale: es }),
-      month: date.getMonth() + 1,
-      year: date.getFullYear(),
-    })
-  }
-  // Mes actual + 12 pasados
-  for (let i = 0; i < 12; i++) {
+  
+  // Mes actual + 6 pasados
+  for (let i = 0; i <= 6; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
     options.push({
       value: `${date.getMonth() + 1}-${date.getFullYear()}`,
@@ -223,7 +220,15 @@ export function DashboardPodologo() {
 
       {/* BI Analytics Section - Visible si hay datos */}
       {data.biAnalytics && (
-        <PodologoBI data={data.biAnalytics} />
+        <div className="border border-slate-200 rounded-lg p-6 bg-white/50 space-y-4 shadow-sm">
+             <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                <div className="bg-indigo-100 p-2 rounded-lg">
+                    <BarChart3 className="h-5 w-5 text-indigo-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800">Estadísticas Globales del Consultorio</h2>
+             </div>
+             <PodologoBI data={data.biAnalytics} />
+        </div>
       )}
 
       {/* Grid principal con filtro a la izquierda */}
@@ -480,48 +485,73 @@ export function DashboardPodologo() {
           </CardContent>
         </Card>
 
-        {/* Actividad Reciente */}
+        {/* Próximas Citas */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" />
-              Actividad Reciente
+              <CalendarClock className="h-5 w-5 text-primary" />
+              Próximas Citas
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Última cita modificada */}
-            {data.ultimaCitaModificada ? (
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Última Cita Modificada
-                </h4>
-                <div className="space-y-1 text-sm">
-                  <p><span className="text-muted-foreground">Paciente:</span> {data.ultimaCitaModificada.paciente_nombre || "N/A"}</p>
-                  <p><span className="text-muted-foreground">Fecha cita:</span> {format(parseISO(data.ultimaCitaModificada.fecha_hora_inicio), "d 'de' MMMM, HH:mm", { locale: es })}</p>
-                  <p><span className="text-muted-foreground">Estado:</span> {data.ultimaCitaModificada.estado_cita?.nombre}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Modificada {format(parseISO(data.ultimaCitaModificada.fecha_modificacion), "d MMM, HH:mm", { locale: es })}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No hay citas recientes</p>
-            )}
+            {data.proximasCitas && data.proximasCitas.length > 0 ? (
+              <>
+                 {/* Cita 1 (Principal - La más próxima) */}
+                 <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 shadow-sm">
+                    <div className="flex justify-between items-start mb-2">
+                       <h4 className="font-bold text-lg text-blue-900 leading-tight">
+                         {data.proximasCitas[0].paciente}
+                       </h4>
+                       <span className="bg-blue-200 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                         Siguiente
+                       </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-blue-700 font-medium mb-2">
+                       <Clock className="h-4 w-4" />
+                       <span className="capitalize">
+                         {format(parseISO(data.proximasCitas[0].fecha), "EEEE d 'de' MMMM, HH:mm", { locale: es })}
+                       </span>
+                    </div>
+                    <p className="text-sm text-blue-600 flex items-center gap-1">
+                       <FileText className="h-3 w-3" />
+                       {data.proximasCitas[0].motivo}
+                    </p>
+                 </div>
 
-            {/* Último paciente atendido */}
-            {data.ultimoPacienteAtendido && (
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-green-600" />
-                  Último Paciente Atendido
-                </h4>
-                <div className="space-y-1 text-sm">
-                  <p className="font-medium">{data.ultimoPacienteAtendido.nombre}</p>
-                  <p className="text-muted-foreground">
-                    {format(parseISO(data.ultimoPacienteAtendido.fecha), "d 'de' MMMM, yyyy", { locale: es })}
-                  </p>
-                </div>
+                 {/* Cita 2 (Secundaria - La siguiente) */}
+                 {data.proximasCitas.length > 1 && (
+                    <div className="mt-2 pt-2 border-t border-slate-100">
+                       <p className="text-xs text-muted-foreground font-semibold mb-2 uppercase tracking-wider">
+                         Después
+                       </p>
+                       <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
+                          <div className="flex flex-col">
+                             <span className="font-semibold text-slate-700">{data.proximasCitas[1].paciente}</span>
+                             <span className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                               <FileText className="h-3 w-3" />
+                               {data.proximasCitas[1].motivo}
+                             </span>
+                          </div>
+                          <div className="text-right bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">
+                             <span className="block text-sm font-bold text-slate-700">
+                               {format(parseISO(data.proximasCitas[1].fecha), "HH:mm")}
+                             </span>
+                             <span className="text-[10px] text-slate-500 capitalize block">
+                               {format(parseISO(data.proximasCitas[1].fecha), "d MMM", { locale: es })}
+                             </span>
+                          </div>
+                       </div>
+                    </div>
+                 )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                <CalendarClock className="h-10 w-10 text-slate-300 mb-2" />
+                <p className="text-sm font-medium text-slate-600">Sin próximas citas</p>
+                <p className="text-xs text-muted-foreground mt-1 px-4">
+                  No tienes citas reservadas pendientes por atender.
+                </p>
               </div>
             )}
           </CardContent>

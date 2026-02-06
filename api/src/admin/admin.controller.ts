@@ -51,6 +51,18 @@ export class AdminController {
     return this.adminService.reactivateUser(id);
   }
 
+  /**
+   * PATCH /admin/usuarios/:id/password
+   * Cambiar contraseña de usuario
+   */
+  @Patch('usuarios/:id/password')
+  changePassword(
+    @Param('id') id: string,
+    @Body() body: { password: string }
+  ) {
+    return this.adminService.changeUserPassword(id, body.password);
+  }
+
   // =====================================================
   // GESTIÓN DE CITAS GLOBALES
   // =====================================================

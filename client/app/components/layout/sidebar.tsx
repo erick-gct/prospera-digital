@@ -183,7 +183,7 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
       }
     };
     checkBackendStatus();
-    const interval = setInterval(checkBackendStatus, 30000);
+    const interval = setInterval(checkBackendStatus, 300000); // 5 minutos
     return () => clearInterval(interval);
   }, []);
 

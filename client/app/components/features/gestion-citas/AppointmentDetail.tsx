@@ -615,7 +615,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
                     Gestiona las recetas médicas para el paciente
                   </CardDescription>
                 </div>
-                {isEditable && (
+                {(isEditable && recetasGuardadas.length === 0 && recetasNuevas.length === 0) && (
                   <Button onClick={() => setRecetaModalOpen(true)} className="gap-2">
                     <Plus className="h-4 w-4" />
                     Nueva Receta
