@@ -7,4 +7,5 @@ export class UpdatePodologoDto {
   fechaNacimiento?: string;
   paisId?: number;
   tipoSangreId?: number;
+  firma_url?: string;
 }

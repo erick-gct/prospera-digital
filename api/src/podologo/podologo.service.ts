@@ -58,6 +58,9 @@ export class PodologoService {
       cedula: updatePodologoDto.cedula,
       pais_id: updatePodologoDto.paisId,
       tipo_sangre_id: updatePodologoDto.tipoSangreId,
+      firma_url: updatePodologoDto.firma_url,
+      telefono: updatePodologoDto.telefono,
+      fecha_nacimiento: updatePodologoDto.fechaNacimiento,
     } as any;
 
     if (updatePodologoDto.email) {

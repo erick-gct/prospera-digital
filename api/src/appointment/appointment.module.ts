@@ -4,10 +4,11 @@ import { AppointmentController } from './appointment.controller';
 import { ConfigModule } from '@nestjs/config';
 import { MailModule } from '../mail/mail.module';
 import { StorageModule } from '../storage/storage.module';
+import { RecetaModule } from '../receta/receta.module';
 
 @Module({
-  imports: [ConfigModule, MailModule, StorageModule],
+  imports: [ConfigModule, MailModule, StorageModule, RecetaModule],
   controllers: [AppointmentController],
   providers: [AppointmentService],
 })
-export class AppointmentModule {}
+export class AppointmentModule { }

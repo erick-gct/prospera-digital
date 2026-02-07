@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { MailService } from '../mail/mail.service';
+import { RecetaService } from '../receta/receta.service';
 import { logAuditEvent } from '../common/audit-context';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class AppointmentService {
   constructor(
     private configService: ConfigService,
     private mailService: MailService,
+    private recetaService: RecetaService,
   ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseKey = this.configService.get<string>(
@@ -739,6 +741,53 @@ export class AppointmentService {
 
     // Obtener nombre del usuario que hace el cambio para auditoría
     let usuarioNombre: string | null = null;
+
+    // --- AUTOMATIZACIÓN RECETA EMAIL (Si se completa la cita) ---
+    if (estadoId === 2) {
+      try {
+        // Verificar si tiene receta
+        const { data: receta } = await this.supabase
+          .from('receta')
+          .select('id')
+          .eq('cita_id', citaId)
+          .single();
+
+        if (receta) {
+          // Generar PDF
+          const pdfBuffer = await this.recetaService.generateRecetaPdf(receta.id);
+
+          // Obtener correo paciente
+          const { data: paciente } = await this.supabase
+            .from('paciente')
+            .select('email, nombres, apellidos')
+            .eq('usuario_id', cita.paciente_id)
+            .single();
+
+          // Obtener nombre podólogo
+          const { data: podologo } = await this.supabase
+            .from('podologo')
+            .select('nombres, apellidos')
+            .eq('usuario_id', cita.podologo_id)
+            .single();
+
+          const nombrePodologo = podologo ? `Dr. ${podologo.nombres} ${podologo.apellidos}` : 'Especialista';
+
+          if (paciente && paciente.email) {
+            const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
+            await this.mailService.sendPrescriptionEmail(
+              paciente.email,
+              nombrePaciente,
+              pdfBuffer,
+              nombrePodologo
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Error enviando receta automática:', error);
+        // No bloqueamos el flujo principal, solo logueamos
+      }
+    }
+
     if (estadoId === 3) {
       // Paciente cancelando
       const { data: pacienteData } = await this.supabase

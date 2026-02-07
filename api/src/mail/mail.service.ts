@@ -457,4 +457,45 @@ export class MailService {
 
     return resultPaciente;
   }
+
+  /**
+   * Enviar Receta Médica adjunta (PDF)
+   */
+  async sendPrescriptionEmail(
+    email: string,
+    nombrePaciente: string,
+    pdfBuffer: Buffer,
+    podologoNombre: string
+  ) {
+    const title = 'Tu Receta Médica';
+    const body = `
+      <p>Hola <strong>${nombrePaciente}</strong>,</p>
+      <p>Adjunto encontrarás la receta médica generada tras tu consulta con el <strong>${podologoNombre}</strong>.</p>
+      <p>Esperamos que te recuperes pronto.</p>
+      <p>Si tienes dudas sobre el tratamiento, contacta con nosotros.</p>
+    `;
+
+    const html = this.getHtmlTemplate(title, body, '#2563EB'); // Azul
+
+    try {
+      console.log(`(Mail) Enviando receta a ${email}`);
+      const data = await this.resend.emails.send({
+        from: `Prospera Digital <${this.fromAddress}>`,
+        to: [email],
+        subject: 'Receta Médica - Prospera Digital',
+        html: html,
+        attachments: [
+          {
+            filename: 'Receta-Medica-ProsperaDigital.pdf',
+            content: pdfBuffer,
+          },
+        ],
+      });
+      console.log(`(Mail) Receta enviada ID: ${data.data?.id}`);
+      return { success: true, data };
+    } catch (error) {
+      console.error('(Mail) Error enviando receta:', error);
+      return { success: false, error };
+    }
+  }
 }

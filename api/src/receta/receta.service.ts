@@ -72,9 +72,23 @@ export class RecetaService {
     // 5. Obtener datos del podólogo
     const { data: podologo } = await this.supabase
       .from('podologo')
-      .select('nombres, apellidos')
+      .select('nombres, apellidos, firma_url')
       .eq('usuario_id', cita?.podologo_id)
       .single();
+
+    // 5.1 Descargar firma si existe
+    let firmaBuffer: Buffer | null = null;
+    if (podologo?.firma_url) {
+      try {
+        const response = await fetch(podologo.firma_url);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          firmaBuffer = Buffer.from(arrayBuffer);
+        }
+      } catch (e) {
+        console.error('Error descargando firma:', e);
+      }
+    }
 
     // 6. Generar PDF
     return this.createPdf({
@@ -82,6 +96,7 @@ export class RecetaService {
       medicamentos: medicamentos || [],
       paciente,
       podologo,
+      firmaBuffer,
     });
   }
 
@@ -90,6 +105,7 @@ export class RecetaService {
     medicamentos: any[];
     paciente: any;
     podologo: any;
+    firmaBuffer: Buffer | null;
   }): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({
@@ -105,7 +121,7 @@ export class RecetaService {
       const primaryColor = '#2563EB';
       const grayColor = '#6B7280';
 
-      // Logo path (intentar cargar si existe)
+      // Logo path
       const logoPath = path.join(
         process.cwd(),
         '..',
@@ -123,7 +139,7 @@ export class RecetaService {
           doc.moveDown();
         }
       } catch (e) {
-        // Si no se puede cargar el logo, continuar sin él
+        // Ignorar
       }
 
       // Título del consultorio
@@ -136,7 +152,7 @@ export class RecetaService {
         .fillColor(grayColor)
         .text('Podología Especializada', 140, 75, { align: 'left' });
 
-      // Línea separadora
+      // Línea separadora header
       doc.moveTo(50, 110).lineTo(545, 110).stroke(primaryColor);
 
       // Título de receta
@@ -145,7 +161,6 @@ export class RecetaService {
         .fillColor('#000')
         .text('RECETA MÉDICA', 50, 130, { align: 'center' });
 
-      // Línea separadora
       doc.moveTo(50, 160).lineTo(545, 160).stroke('#E5E7EB');
 
       // Datos del paciente
@@ -157,7 +172,7 @@ export class RecetaService {
         .fillColor('#000')
         .text(
           `${data.paciente?.nombres || ''} ${data.paciente?.apellidos || ''}`.trim() ||
-            'No especificado',
+          'No especificado',
           120,
           yPaciente,
         );
@@ -170,18 +185,17 @@ export class RecetaService {
       doc.fillColor(grayColor).text('Fecha:', 350, yPaciente);
       const fechaFormateada = data.receta.fecha_emision
         ? new Date(data.receta.fecha_emision).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
         : new Date().toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          });
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
       doc.fillColor('#000').text(fechaFormateada, 400, yPaciente);
 
-      // Línea separadora
       doc.moveTo(50, 230).lineTo(545, 230).stroke('#E5E7EB');
 
       // Diagnóstico
@@ -206,29 +220,21 @@ export class RecetaService {
           .fillColor(grayColor)
           .text('No hay medicamentos registrados', 50, yMeds);
       } else {
-        // Definir columnas de la tabla
         const tableLeft = 50;
         const colWidths = { num: 30, med: 150, dosis: 120, indic: 195 };
         const rowHeight = 25;
 
-        // Header de la tabla
+        // Header
         doc.font('Helvetica-Bold').fontSize(10);
-
-        // Fondo del header
         doc.rect(tableLeft, yMeds, 495, rowHeight).fill('#E5E7EB');
-
-        // Textos del header
         doc.fillColor('#000');
         doc.text('N°', tableLeft + 5, yMeds + 7, { width: colWidths.num });
         doc.text('Medicamento', tableLeft + colWidths.num + 5, yMeds + 7, {
           width: colWidths.med,
         });
-        doc.text(
-          'Dosis',
-          tableLeft + colWidths.num + colWidths.med + 5,
-          yMeds + 7,
-          { width: colWidths.dosis },
-        );
+        doc.text('Dosis', tableLeft + colWidths.num + colWidths.med + 5, yMeds + 7, {
+          width: colWidths.dosis,
+        });
         doc.text(
           'Indicaciones',
           tableLeft + colWidths.num + colWidths.med + colWidths.dosis + 5,
@@ -238,39 +244,28 @@ export class RecetaService {
 
         yMeds += rowHeight;
 
-        // Filas de datos
+        // Filas
         doc.font('Helvetica').fontSize(9);
 
         data.medicamentos.forEach((med, index) => {
           const isEven = index % 2 === 0;
-
-          // Fondo alternado
           if (isEven) {
             doc.rect(tableLeft, yMeds, 495, rowHeight).fill('#F9FAFB');
           } else {
             doc.rect(tableLeft, yMeds, 495, rowHeight).fill('#FFFFFF');
           }
-
-          // Bordes de fila
           doc.rect(tableLeft, yMeds, 495, rowHeight).stroke('#E5E7EB');
 
-          // Contenido de celdas
           doc.fillColor('#000');
           doc.text(`${index + 1}`, tableLeft + 5, yMeds + 8, {
             width: colWidths.num,
           });
-          doc.text(
-            med.medicamento || '-',
-            tableLeft + colWidths.num + 5,
-            yMeds + 8,
-            { width: colWidths.med - 10 },
-          );
-          doc.text(
-            med.dosis || '-',
-            tableLeft + colWidths.num + colWidths.med + 5,
-            yMeds + 8,
-            { width: colWidths.dosis - 10 },
-          );
+          doc.text(med.medicamento || '-', tableLeft + colWidths.num + 5, yMeds + 8, {
+            width: colWidths.med - 10,
+          });
+          doc.text(med.dosis || '-', tableLeft + colWidths.num + colWidths.med + 5, yMeds + 8, {
+            width: colWidths.dosis - 10,
+          });
           doc.text(
             med.indicaciones || '-',
             tableLeft + colWidths.num + colWidths.med + colWidths.dosis + 5,
@@ -284,6 +279,24 @@ export class RecetaService {
 
       // Espacio para firma
       const yFirma = Math.max(yMeds + 50, 550);
+
+      // FIRMA DIGITAL (Si existe)
+      if (data.firmaBuffer) {
+        try {
+          // Ajustar tamaño y posición de la firma
+          // Centrada respecto a la línea (350 a 530 -> ancho 180, centro 440)
+          // Asumimos un ancho de imagen de 100-120px
+          doc.image(data.firmaBuffer, 390, yFirma - 45, {
+            width: 100,
+            height: 50,
+            fit: [100, 50],
+            align: 'center',
+            valign: 'bottom'
+          });
+        } catch (error) {
+          console.error('Error incrustando firma en PDF:', error);
+        }
+      }
 
       doc.moveTo(350, yFirma).lineTo(530, yFirma).stroke('#000');
       doc

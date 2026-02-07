@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/cliente"
 import {
   Dialog,
   DialogContent,
@@ -61,33 +62,38 @@ interface ProfileEditDialogProps {
   data: Paciente | Podologo | null
   role: string | null
   onSuccess: () => void
-  isAdmin?: boolean // Nuevo prop opcional
+  isAdmin?: boolean
 }
 
 export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAdmin = false }: ProfileEditDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
-  const isPaciente = role === "PACIENTE"
+  
+  // Normalizar rol (Case insensitive)
+  const normalizedRole = role ? role.toUpperCase() : "";
+  const isPaciente = normalizedRole === "PACIENTE"
+  const isPodologo = normalizedRole === "PODOLOGO"
 
-
+  // Estado para firma
+  const [firmaUrl, setFirmaUrl] = useState<string>("")
+  const [firmaFile, setFirmaFile] = useState<File | null>(null)
+  const [isUploadingFirma, setIsUploadingFirma] = useState(false)
 
   // Catálogos
   const [paisesOptions, setPaisesOptions] = useState<ComboboxOption[]>([])
   const [tiposSangreOptions, setTiposSangreOptions] = useState<{id: number, nombre: string}[]>([])
-  
-  // Estado del Formulario (Unificado para ambos roles)
+
+  // Estado del Formulario
   const [formData, setFormData] = useState({
     nombres: "",
     apellidos: "",
     cedula: "",
     email: "",
     telefono: "",
-    // Campos específicos de Paciente (se ignoran si es Podólogo)
     ciudad: "",
     direccion: "",
     enfermedades: "",
-    // Comunes
     fechaNacimiento: undefined as Date | undefined,
     paisId: undefined as number | undefined,
     tipoSangreId: undefined as number | undefined,
@@ -96,6 +102,9 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
   // 1. Cargar Datos y Catálogos
   useEffect(() => {
     if (isOpen && data) {
+      console.log("ProfileEditDialog OPEN - Data:", data);
+      console.log("ProfileEditDialog OPEN - Role:", role, "=> Normalized:", normalizedRole);
+
       const fetchCatalogs = async () => {
         try {
           const [resPaises, resSangre] = await Promise.all([
@@ -117,7 +126,6 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
       }
       fetchCatalogs()
 
-      // Parsear fecha
       let fechaNac: Date | undefined = undefined;
       if (data.fecha_nacimiento) {
         const fechaString = data.fecha_nacimiento.includes('T') 
@@ -126,8 +134,14 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
         fechaNac = new Date(fechaString);
       }
 
-      // Casting seguro para acceder a propiedades específicas
+      // Casting seguro
       const pacienteData = isPaciente ? (data as Paciente) : null;
+      
+      // Lógica robusta para encontrar IDs (directo o anidado)
+      const safePaisId = (data as any).pais_id ?? (data.paises ? (data as any).pais_id : undefined);
+      const safeSangreId = (data as any).tipo_sangre_id ?? (data.tipos_sangre ? (data as any).tipo_sangre_id : undefined);
+      
+      console.log("Mapeando IDs -> Pais:", safePaisId, "Sangre:", safeSangreId);
 
       setFormData({
         nombres: data.nombres || "",
@@ -135,17 +149,22 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
         cedula: data.cedula || "",
         email: data.email || "",
         telefono: data.telefono || "",
-        // Solo llenamos si es paciente
         ciudad: pacienteData?.ciudad || "",
         direccion: pacienteData?.direccion || "",
         enfermedades: pacienteData?.enfermedades || "",
-        
         fechaNacimiento: fechaNac,
-        paisId: data.paises ? (data as any).pais_id : undefined, // Ajuste según tu estructura exacta de DB
-        tipoSangreId: data.tipos_sangre ? (data as any).tipo_sangre_id : undefined,
+        paisId: safePaisId,
+        tipoSangreId: safeSangreId,
       })
+
+      // Cargar firma si existe
+      if (isPodologo && (data as any).firma_url) {
+        setFirmaUrl((data as any).firma_url)
+      } else {
+        setFirmaUrl("")
+      }
     }
-  }, [isOpen, data, isPaciente])
+  }, [isOpen, data, isPaciente, isPodologo, normalizedRole])
 
   // Handlers
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -156,6 +175,38 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
   const handleCountryChange = (val: string) => setFormData(prev => ({ ...prev, paisId: Number(val) }))
   const handleBloodChange = (val: string) => setFormData(prev => ({ ...prev, tipoSangreId: Number(val) }))
   const handleDateChange = (date: Date | undefined) => setFormData(prev => ({ ...prev, fechaNacimiento: date }))
+
+  // ... existing handlers
+
+  const handleFirmaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setFirmaFile(file)
+    // Preview local
+    const objectUrl = URL.createObjectURL(file)
+    setFirmaUrl(objectUrl)
+  }
+
+  const uploadFirmaToSupabase = async (file: File) => {
+    // Usamos el cliente del frontend
+    const supabase = createClient()
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${data?.usuario_id}-${Date.now()}.${fileExt}`
+    
+    // Bucket separado para firmas
+    const { error: uploadError } = await supabase.storage
+      .from('firmas')
+      .upload(fileName, file)
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('firmas')
+      .getPublicUrl(fileName)
+      
+    return publicUrl
+  }
 
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -168,27 +219,50 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
     setShowConfirm(false)
 
     try {
+      let finalFirmaUrl = firmaUrl
+
+      // Si hay archivo nuevo, subirlo primero
+      if (firmaFile && isPodologo) {
+         try {
+             setIsUploadingFirma(true)
+             finalFirmaUrl = await uploadFirmaToSupabase(firmaFile)
+         } catch(error) {
+             console.error("Error subiendo firma", error)
+             toast.error("Error al subir la firma. Verifica que el bucket 'firmas' exista y sea público.")
+             setIsLoading(false)
+             return
+         } finally {
+             setIsUploadingFirma(false)
+         }
+      }
+
       // Endpoint dinámico según rol
       const endpoint = isPaciente 
         ? `${ApiRoutes.pacientes.byId(data.usuario_id)}`
         : `${ApiRoutes.podologos.byId(data.usuario_id)}`
 
-      // Payload dinámico (filtramos lo que enviamos según el rol)
+      // Payload dinámico
       const payload: any = {
          nombres: formData.nombres,
          apellidos: formData.apellidos,
-         // email: formData.email, // UPDATE: Se envía si es Admin
          telefono: formData.telefono,
          fechaNacimiento: formData.fechaNacimiento ? formData.fechaNacimiento.toISOString() : null,
          paisId: formData.paisId,
          tipoSangreId: formData.tipoSangreId,
       }
 
-      // Si es admin, añadimos campos sensibles
+       if(isPodologo) {
+          payload.firma_url = finalFirmaUrl 
+      }
+
+      // Si es admin...
       if (isAdmin) {
           payload.cedula = formData.cedula;
           payload.email = formData.email;
       }
+
+      // ... rest of payload logic
+
 
       // Si es paciente, enviamos los campos extra
       if (isPaciente) {
@@ -377,6 +451,54 @@ export function ProfileEditDialog({ isOpen, onClose, data, role, onSuccess, isAd
                         className="min-h-[120px] resize-none text-sm"
                         />
                      </div>
+                 )}
+
+                 {/* Campos exclusivos de Podólogo (Firma) */}
+                 {isPodologo && (
+                    <div className="space-y-2 pt-2">
+                       <Label className="text-xs font-semibold">Firma Digital</Label>
+                       
+                       <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-3 bg-gray-50/50">
+                          {firmaUrl ? (
+                            <div className="relative w-full h-32 bg-white rounded-md border flex items-center justify-center overflow-hidden">
+                                <img src={firmaUrl} alt="Firma" className="max-h-full max-w-full object-contain" />
+                                <Button 
+                                  type="button" 
+                                  variant="destructive" 
+                                  size="icon" 
+                                  className="absolute top-1 right-1 h-6 w-6"
+                                  onClick={() => { setFirmaUrl(""); setFirmaFile(null); }}
+                                >
+                                  <span className="text-xs">×</span>
+                                </Button>
+                            </div>
+                          ) : (
+                            <div className="text-center text-muted-foreground py-4">
+                               <p className="text-xs mb-2">No hay firma cargada</p>
+                            </div>
+                          )}
+                          
+                          <div className="w-full">
+                            <Label htmlFor="firma-upload" className="cursor-pointer">
+                              <div className="flex items-center justify-center gap-2 w-full h-8 bg-white border rounded-md hover:bg-gray-50 text-xs transition-colors">
+                                 {isUploadingFirma ? <Loader2 className="h-3 w-3 animate-spin"/> : <Save className="h-3 w-3"/>}
+                                 {firmaUrl ? "Cambiar Firma" : "Subir Firma"}
+                              </div>
+                              <Input 
+                                id="firma-upload" 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={handleFirmaUpload}
+                                disabled={isUploadingFirma}
+                              />
+                            </Label>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground text-center">
+                            Sube una imagen de tu firma (PNG/JPG) para usarla en recetas.
+                          </p>
+                       </div>
+                    </div>
                  )}
               </div>
             </div>
