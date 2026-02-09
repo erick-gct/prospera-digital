@@ -9,11 +9,16 @@ import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { RegisterDto } from './dto/register.dto';
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class AuthService {
   private supabase: SupabaseClient;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private mailService: MailService,
+  ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseKey = this.configService.get<string>(
       'SUPABASE_SERVICE_ROLE_KEY',
@@ -51,20 +56,23 @@ export class AuthService {
     // A. ¿Es Administrador?
     const { data: admin, error: adminError } = await this.supabase
       .from('administrador')
-      .select('usuario_id')
+      .select('usuario_id, nombres')
       .eq('usuario_id', userId)
       .maybeSingle();
 
     console.log(`(API) Resultado admin:`, admin, `Error:`, adminError);
 
+    let userProfile: any = null;
+
     if (admin) {
       role = 'ADMINISTRADOR';
+      userProfile = { nombres: admin.nombres };
       console.log(`(API) Usuario identificado como ADMINISTRADOR`);
     } else {
       // B. ¿Es Podólogo?
       const { data: podologo, error: podologoError } = await this.supabase
         .from('podologo')
-        .select('usuario_id, estado')
+        .select('usuario_id, estado, nombres, apellidos')
         .eq('usuario_id', userId)
         .maybeSingle();
 
@@ -83,12 +91,13 @@ export class AuthService {
           );
         }
         role = 'PODOLOGO';
+        userProfile = { nombres: podologo.nombres, apellidos: podologo.apellidos };
         console.log(`(API) Usuario identificado como PODOLOGO`);
       } else {
         // C. ¿Es Paciente?
         const { data: paciente, error: pacienteError } = await this.supabase
           .from('paciente')
-          .select('usuario_id, estado_paciente_id')
+          .select('usuario_id, estado_paciente_id, nombres, apellidos')
           .eq('usuario_id', userId)
           .maybeSingle();
 
@@ -109,6 +118,7 @@ export class AuthService {
             );
           }
           role = 'PACIENTE';
+          userProfile = { nombres: paciente.nombres, apellidos: paciente.apellidos };
         }
       }
     }
@@ -120,7 +130,7 @@ export class AuthService {
       usuario_id: userId,
       email: email,
       accion: 'LOGIN',
-      ip_address: null, // Se podría obtener del request si se pasa como parámetro
+      ip_address: null, // Se podría obtener del request si se pasa como parámetros
       fecha_hora: new Date().toISOString(),
     });
 
@@ -128,6 +138,7 @@ export class AuthService {
     return {
       ...data, // session y user
       role,
+      user_profile: userProfile,
     };
   }
 
@@ -224,6 +235,60 @@ export class AuthService {
       ...authData,
       role: 'PACIENTE',
     };
+  }
+
+  /**
+   * Inicia el proceso de recuperación de contraseña
+   */
+  async recoverPassword(email: string): Promise<{ success: boolean; message: string }> {
+    console.log(`(API) Solicitud de recuperación de contraseña para: ${email}`);
+
+    // 1. Verificar si el usuario existe en nuestra BD (Opcional, pero recomendado para personalizar el correo)
+    let userName = 'Usuario';
+
+    // Buscar en Paciente
+    const { data: paciente } = await this.supabase
+      .from('paciente')
+      .select('nombres')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (paciente) {
+      userName = paciente.nombres;
+    } else {
+      // Buscar en Podólogo
+      const { data: podologo } = await this.supabase
+        .from('podologo')
+        .select('nombres')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (podologo) userName = podologo.nombres;
+    }
+
+    // 2. Generar Link de Recuperación con Supabase Admin
+    // Usamos generateLink con type 'recovery'
+    const { data: linkData, error: linkError } = await this.supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        // Redirigir al endpoint de callback (sin query params para evitar errores de encoding)
+        redirectTo: `${this.configService.get('FRONTEND_URL') || 'http://localhost:3000'}/auth/callback`,
+      },
+    });
+
+    if (linkError) {
+      console.error('(API) Error generando link de recuperación:', linkError.message);
+      throw new BadRequestException('No se pudo procesar la solicitud. Verifica el correo.');
+    }
+
+    const recoveryLink = linkData.properties.action_link;
+    console.log(`(API) Link de recuperación generado: ${recoveryLink}`);
+
+    // 3. Enviar correo usando MailService (Resend)
+    await this.mailService.sendPasswordRecoveryEmail(email, recoveryLink, userName);
+
+    return { success: true, message: 'Si el correo existe, se enviaron las instrucciones.' };
   }
 
   /**

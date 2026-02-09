@@ -13,9 +13,11 @@ import {
   Mail,
   Clock,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiRoutes } from "@/lib/api-routes";
+import { createClient } from "@/lib/supabase/cliente";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +65,7 @@ interface Cita {
   podologo: {
     nombre_completo: string;
   } | null;
+  fecha_creacion: string;
 }
 
 interface Podologo {
@@ -88,6 +91,7 @@ export default function AdminCitasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCita, setSelectedCita] = useState<Cita | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [updatingCitaId, setUpdatingCitaId] = useState<number | null>(null);
 
   // Filtros
   const [estadoFilter, setEstadoFilter] = useState("todos");
@@ -113,7 +117,7 @@ export default function AdminCitasPage() {
         fechaFin: fechaFin || undefined,
       });
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
 
       if (!res.ok) throw new Error("Error al cargar citas");
 
@@ -169,6 +173,59 @@ export default function AdminCitasPage() {
   const handleViewDetail = (cita: Cita) => {
     setSelectedCita(cita);
     setIsDetailOpen(true);
+  };
+
+  const handleStatusChange = async (citaId: number, newStatusId: string) => {
+    try {
+      setUpdatingCitaId(citaId);
+      const numericStatus = parseInt(newStatusId, 10);
+      
+
+
+      // Nota: ApiRoutes.admin.citas no tiene definido updateStatus, usaremos ApiRoutes.citas.updateStatus
+      const url = ApiRoutes.citas.updateStatus(citaId);
+      
+      // Obtener ID del usuario actual (Administrador) desde Supabase
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+
+      if (!userId) {
+          console.warn("No se pudo obtener el ID del usuario para verificar permisos de administrador");
+      }
+
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+            estadoId: numericStatus, 
+            userId: userId 
+        }),
+      });
+
+      if (!res.ok) throw new Error("Error al actualizar estado");
+      
+      const data = await res.json();
+      toast.success(`Estado actualizado a ${estadoNames[numericStatus]}`);
+      
+      // Actualizar la lista localmente
+      setCitas(prev => prev.map(c => 
+        c.id === citaId 
+          ? { ...c, estado_id: numericStatus, estado_nombre: estadoNames[numericStatus] } 
+          : c
+      ));
+      
+      // Actualizar estadísticas también si es posible, o recargar
+      fetchCitas(); 
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al cambiar el estado");
+    } finally {
+      setUpdatingCitaId(null);
+    }
   };
 
   return (
@@ -389,12 +446,24 @@ export default function AdminCitasPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={estadoColors[cita.estado_id] || ""}
+                      <Select
+                        value={cita.estado_id.toString()}
+                        onValueChange={(val) => handleStatusChange(cita.id, val)}
+                        disabled={updatingCitaId === cita.id}
                       >
-                        {estadoNames[cita.estado_id] || cita.estado_nombre}
-                      </Badge>
+                        <SelectTrigger className={`h-8 w-[130px] ${estadoColors[cita.estado_id] || ""}`}>
+                          {updatingCitaId === cita.id ? (
+                             <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                             <SelectValue>{estadoNames[cita.estado_id]}</SelectValue>
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Reservada</SelectItem>
+                          <SelectItem value="2">Completada</SelectItem>
+                          <SelectItem value="3">Cancelada</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -446,6 +515,12 @@ export default function AdminCitasPage() {
                   )}
                 </div>
               </div>
+              
+              {/* Fecha de Creación */}
+               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-gray-50 p-2 rounded border">
+                  <Calendar className="h-3 w-3" />
+                  <span>Agendada el: {selectedCita.fecha_creacion ? format(parseISO(selectedCita.fecha_creacion), "d 'de' MMMM yyyy, HH:mm", { locale: es }) : 'N/A'}</span>
+               </div>
 
               <Separator />
 

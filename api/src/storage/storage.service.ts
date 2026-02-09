@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -18,9 +18,14 @@ export class StorageService {
   }
 
   async uploadFile(file: Express.Multer.File, folder: string = 'uploads') {
-    // 1. Generar nombre único para evitar colisiones
-    // Ej: avatars/123456789-mi-foto.png
-    const fileName = `${folder}/${Date.now()}-${file.originalname.replace(/\s/g, '_')}`;
+    // 1. Generar nombre único para evitar colisiones y errores de caracteres
+    // Normalizar (quitar acentos) y eliminar caracteres especiales
+    const sanitizedOriginalName = file.originalname
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Eliminar diacríticos
+      .replace(/[^a-zA-Z0-9.-]/g, '_'); // Reemplazar otros caracteres por _
+
+    const fileName = `${folder}/${Date.now()}-${sanitizedOriginalName}`;
 
     // 2. Subir a Supabase Storage
     const { data, error } = await this.supabase.storage
@@ -32,6 +37,14 @@ export class StorageService {
 
     if (error) {
       console.error('Error subiendo archivo:', error);
+
+      // Mapear errores de cliente (4xx) a BadRequest para que el usuario vea el mensaje
+      // @ts-ignore
+      const statusCode = error.statusCode || error.status;
+      if (statusCode && String(statusCode).startsWith('4')) {
+        throw new BadRequestException(`Error almacenamiento (${statusCode}): ${error.message}`);
+      }
+
       throw new InternalServerErrorException(
         `No se pudo subir el archivo: ${error.message}`,
       );

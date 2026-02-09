@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar, User, Phone, Mail, FileText, Info } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
@@ -132,8 +133,10 @@ export function AppointmentDetailsDialog({ open, onOpenChange, cita }: Appointme
                 <Info className="h-4 w-4" />
                 Historial de Cambios (Trazabilidad)
               </h4>
-             <div className="flex-1 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 p-4">
-                <AppointmentTimeline citaId={cita.id} />
+             <div className="flex-1 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 p-1 overflow-hidden flex flex-col">
+                <ScrollArea className="h-[300px] w-full p-4">
+                    <AppointmentTimeline citaId={cita.id} />
+                </ScrollArea>
              </div>
           </div>
 

@@ -308,20 +308,37 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
 
       // Subir documentos pendientes
       const pendingFiles = documentosRef.current?.getPendingFiles() || []
+      let uploadErrors = 0;
+
       if (pendingFiles.length > 0) {
         for (const file of pendingFiles) {
-          const formData = new FormData()
-          formData.append('file', file)
-          await fetch(ApiRoutes.citas.uploadDocument(cita.id), {
-            method: 'POST',
-            body: formData,
-          })
+          try {
+            const formData = new FormData()
+            formData.append('file', file)
+            const res = await fetch(ApiRoutes.citas.uploadDocument(cita.id), {
+              method: 'POST',
+              body: formData,
+            })
+            if (!res.ok) {
+              const errorData = await res.json().catch(() => ({}));
+              console.error('Error uploading file:', file.name, errorData);
+              uploadErrors++;
+            }
+          } catch (e) {
+            console.error('Network error uploading file:', file.name, e);
+            uploadErrors++;
+          }
         }
         documentosRef.current?.clearPendingFiles()
         documentosRef.current?.reload()
       }
 
-      toast.success("Datos guardados correctamente")
+      if (uploadErrors > 0) {
+        toast.warning(`Se guardaron los datos, pero ${uploadErrors} documento(s) no se pudieron subir. Verifique el tamaño (máx 10MB) o formato.`);
+      } else {
+        toast.success("Datos y documentos guardados correctamente");
+      }
+      
       // Limpiar recetas nuevas y recargar todo
       setRecetasNuevas([])
       await loadDetail()

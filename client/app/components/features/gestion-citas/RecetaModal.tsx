@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export interface Medicamento {
   id: string
@@ -104,9 +105,9 @@ export function RecetaModal({ open, onOpenChange, paciente, onSave, initialData 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 flex flex-col gap-2">
           {/* Header de la tabla */}
-          <div className="grid grid-cols-12 gap-3 mb-2 px-2">
+          <div className="grid grid-cols-12 gap-3 px-2 pr-6">
             <div className="col-span-4">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Medicamento
@@ -125,54 +126,56 @@ export function RecetaModal({ open, onOpenChange, paciente, onSave, initialData 
             <div className="col-span-1"></div>
           </div>
 
-          {/* Lista de medicamentos */}
-          <div className="space-y-2">
-            {medicamentos.map((med, index) => (
-              <div 
-                key={med.id} 
-                className="grid grid-cols-12 gap-3 p-3 bg-muted/30 rounded-lg items-center"
-              >
-                <div className="col-span-4 flex items-center gap-2">
-                  <Syringe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <Input
-                    placeholder="Nombre del medicamento"
-                    value={med.nombre}
-                    onChange={(e) => updateMedicamento(med.id, "nombre", e.target.value)}
-                    className="h-9"
-                  />
+          {/* Lista de medicamentos con Scroll */}
+          <ScrollArea className="h-[400px] w-full rounded-md border p-2">
+            <div className="space-y-2">
+                {medicamentos.map((med, index) => (
+                <div 
+                    key={med.id} 
+                    className="grid grid-cols-12 gap-3 p-3 bg-muted/30 rounded-lg items-center"
+                >
+                    <div className="col-span-4 flex items-center gap-2">
+                    <Syringe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                        placeholder="Nombre del medicamento"
+                        value={med.nombre}
+                        onChange={(e) => updateMedicamento(med.id, "nombre", e.target.value)}
+                        className="h-9"
+                    />
+                    </div>
+                    <div className="col-span-2">
+                    <Input
+                        placeholder="Ej: 500mg"
+                        value={med.dosis}
+                        onChange={(e) => updateMedicamento(med.id, "dosis", e.target.value)}
+                        className="h-9"
+                    />
+                    </div>
+                    <div className="col-span-5">
+                    <Input
+                        placeholder="Ej: 1 cada 8 horas por 7 días"
+                        value={med.indicaciones}
+                        onChange={(e) => updateMedicamento(med.id, "indicaciones", e.target.value)}
+                        className="h-9"
+                    />
+                    </div>
+                    <div className="col-span-1 flex justify-center">
+                    {medicamentos.length > 1 && (
+                        <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeMedicamento(med.id)}
+                        className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                        <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
+                    </div>
                 </div>
-                <div className="col-span-2">
-                  <Input
-                    placeholder="Ej: 500mg"
-                    value={med.dosis}
-                    onChange={(e) => updateMedicamento(med.id, "dosis", e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-                <div className="col-span-5">
-                  <Input
-                    placeholder="Ej: 1 cada 8 horas por 7 días"
-                    value={med.indicaciones}
-                    onChange={(e) => updateMedicamento(med.id, "indicaciones", e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  {medicamentos.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeMedicamento(med.id)}
-                      className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                ))}
+            </div>
+          </ScrollArea>
 
           {/* Botón agregar */}
           <Button 
@@ -180,7 +183,7 @@ export function RecetaModal({ open, onOpenChange, paciente, onSave, initialData 
             variant="outline" 
             size="sm" 
             onClick={addMedicamento} 
-            className="mt-3 gap-2"
+            className="mt-2 self-start gap-2"
           >
             <Plus className="h-4 w-4" />
             Agregar medicamento

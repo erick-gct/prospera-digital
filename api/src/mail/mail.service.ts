@@ -57,6 +57,29 @@ export class MailService {
   }
 
   /**
+   * Envía correo de recuperación de contraseña
+   */
+  async sendPasswordRecoveryEmail(to: string, resetLink: string, userName: string = 'Usuario') {
+    const subject = 'Recuperación de Contraseña - Prospera Digital';
+    const htmlContent = this.getHtmlTemplate(
+      'Recupera tu Acceso',
+      `
+      <p>Hola <strong>${userName}</strong>,</p>
+      <p>Hemos recibido una solicitud para restablecer tu contraseña. Si no fuiste tú, puedes ignorar este correo.</p>
+      <p>Para crear una nueva contraseña, haz clic en el siguiente enlace:</p>
+      <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" class="button" style="background-color: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Restablecer Contraseña</a>
+      </div>
+      <p style="font-size: 12px; color: #666;">O copia y pega este enlace en tu navegador:</p>
+      <p style="font-size: 12px; color: #666; word-break: break-all;">${resetLink}</p>
+      <p class="warning">Este enlace expirará en 1 hora por seguridad.</p>
+      `
+    );
+
+    return this.sendEmail(to, subject, htmlContent);
+  }
+
+  /**
    * Envía un correo genérico
    * NOTA: Si existe MAIL_PRUEBA en .env, se usará ese email como destinatario para pruebas
    */

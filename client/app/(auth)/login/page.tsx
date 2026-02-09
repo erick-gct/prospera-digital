@@ -73,11 +73,28 @@ export default function LoginPage() {
         // Lo guardamos en localStorage para que el Sidebar lo lea rápido
         if (typeof window !== 'undefined') {
           localStorage.setItem('user_role', data.role || 'PACIENTE');
+
+          // Lógica de nombre para mostrar
+          let displayName = data.user?.user_metadata?.full_name || "Usuario";
+          let firstName = "Usuario";
+
+          if (data.user_profile) {
+            const { nombres, apellidos } = data.user_profile;
+            firstName = nombres;
+
+            if (data.role === 'ADMINISTRADOR') {
+              displayName = nombres;
+            } else {
+              displayName = `${nombres} ${apellidos}`;
+            }
+          }
+
+          localStorage.setItem('user_display_name', displayName);
+          toast.success(`Bienvenido, ${firstName}`);
         }
 
-        console.log("¡Inicio de sesión exitoso!", data.user);
-        toast.success(`Bienvenido, ${data.user.user_metadata.full_name}`);
-
+        console.log("¡Inicio de sesión exitoso!");
+        
         // Redirige al dashboard y refresca
         router.push("/dashboard");
         router.refresh();
@@ -150,10 +167,10 @@ export default function LoginPage() {
           <div className="text-center text-xs text-muted-foreground py-2">
             ¿Olvidaste tu contraseña?{" "}
             <Link
-              href="/register"
+              href="/forgot-password"
               className="font-semibold text-primary underline-offset-4 hover:underline"
             >
-              Da click aqui
+              Da click aquí
             </Link>
           </div>
 

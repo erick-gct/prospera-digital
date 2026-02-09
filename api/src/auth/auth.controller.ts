@@ -4,7 +4,7 @@ import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -23,5 +23,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Body() body: { userId: string; email: string }) {
     return this.authService.logLogout(body.userId, body.email);
+  }
+
+  @Post('recover-password')
+  async recoverPassword(@Body('email') email: string) {
+    return this.authService.recoverPassword(email);
   }
 }

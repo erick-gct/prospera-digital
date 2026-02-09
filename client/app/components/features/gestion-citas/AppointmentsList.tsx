@@ -71,10 +71,8 @@ const estadoColors: Record<number, { bg: string; text: string; border: string }>
 }
 
 // Opciones de estado
-const ESTADO_OPTIONS = [
-  { value: "1", label: "Reservada" },
-  { value: "2", label: "Completada" },
-]
+// Opciones de estado (Eliminado para Podólogo, solo Cancelar disponible via botón)
+// const ESTADO_OPTIONS = ...
 
 export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate, onRefresh, podologoId }: AppointmentsListProps) {
   const [loadingCitaId, setLoadingCitaId] = useState<string | null>(null)
@@ -246,26 +244,7 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
 
                       {estadoId !== 3 && (
                         <div className="flex flex-col gap-0.5">
-                           <Select
-                            value={estadoId.toString()}
-                            onValueChange={(value) => openConfirmDialog(cita, parseInt(value, 10))}
-                            disabled={isUpdating}
-                          >
-                            <SelectTrigger className="w-[100px] h-7 text-xs">
-                              {isUpdating ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <SelectValue />
-                              )}
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ESTADO_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value} className="text-xs">
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {/* Selector eliminado por solicitud: El estado se gestiona desde el detalle o flujo completo */}
                         </div>
                       )}
 

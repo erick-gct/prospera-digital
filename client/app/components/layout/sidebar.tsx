@@ -89,75 +89,75 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Nombre
-        if (user.user_metadata?.full_name) {
-          setUserName(user.user_metadata.full_name);
+        // --- 1. Intentar cargar desde localStorage (Rápido) ---
+        const storedRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null;
+        const storedName = typeof window !== "undefined" ? localStorage.getItem("user_display_name") : null;
+
+        if (storedRole && storedName) {
+           setUserRole(storedRole as any);
+           setUserName(storedName);
+           console.log("[Sidebar] Cargado desde Storage:", { role: storedRole, name: storedName });
+           // Opcional: Podríamos re-verificar en segundo plano, pero por ahora confiamos
         }
-
-        // 2. Detección de Rol (Prioridad: LocalStorage -> Base de Datos)
-        const storedRole =
-          typeof window !== "undefined"
-            ? localStorage.getItem("user_role")
-            : null;
-
-        console.log("[Sidebar] Rol en localStorage:", storedRole);
-
-        if (
-          storedRole === "PODOLOGO" ||
-          storedRole === "PACIENTE" ||
-          storedRole === "ADMINISTRADOR"
-        ) {
-          setUserRole(storedRole);
-          console.log("[Sidebar] Usando rol de localStorage:", storedRole);
-        } else {
-          // Fallback: Verificar directamente en la base de datos
-          console.log(
-            "[Sidebar] No hay rol en localStorage, verificando BD..."
-          );
-
-          // Primero verificar si es administrador
+        
+        // --- 2. Si no hay datos en Storage, consultar BD ---
+        if (!storedRole || !storedName) {
+          console.log("[Sidebar] Consultando Base de Datos...");
+          
+          // A. Administrador
           const { data: admin } = await supabase
             .from("administrador")
-            .select("usuario_id")
+            .select("usuario_id, nombres")
             .eq("usuario_id", user.id)
             .maybeSingle();
 
           if (admin) {
+            const displayName = admin.nombres;
             setUserRole("ADMINISTRADOR");
-            localStorage.setItem("user_role", "ADMINISTRADOR");
-            console.log("[Sidebar] Usuario es ADMINISTRADOR (BD)");
-          } else {
-            // Verificar si es podólogo
-            const { data: podologo } = await supabase
-              .from("podologo")
-              .select("usuario_id")
-              .eq("usuario_id", user.id)
-              .maybeSingle();
-
-            if (podologo) {
-              setUserRole("PODOLOGO");
-              localStorage.setItem("user_role", "PODOLOGO");
-              console.log("[Sidebar] Usuario es PODOLOGO (BD)");
-            } else {
-              // Verificar si es paciente
-              const { data: paciente } = await supabase
-                .from("paciente")
-                .select("usuario_id")
-                .eq("usuario_id", user.id)
-                .maybeSingle();
-
-              if (paciente) {
-                setUserRole("PACIENTE");
-                localStorage.setItem("user_role", "PACIENTE");
-                console.log("[Sidebar] Usuario es PACIENTE (BD)");
-              } else {
-                // Usuario sin rol definido, default a PACIENTE
-                setUserRole("PACIENTE");
-                console.log(
-                  "[Sidebar] Usuario sin rol definido, usando PACIENTE"
-                );
-              }
+            setUserName(displayName);
+            if (typeof window !== "undefined") {
+                localStorage.setItem("user_role", "ADMINISTRADOR");
+                localStorage.setItem("user_display_name", displayName);
             }
+          } else {
+             // B. Podólogo
+             const { data: podologo } = await supabase
+               .from("podologo")
+               .select("usuario_id, nombres, apellidos")
+               .eq("usuario_id", user.id)
+               .maybeSingle();
+             
+             if (podologo) {
+                const displayName = `${podologo.nombres} ${podologo.apellidos}`;
+                setUserRole("PODOLOGO");
+                setUserName(displayName);
+                if (typeof window !== "undefined") {
+                    localStorage.setItem("user_role", "PODOLOGO");
+                    localStorage.setItem("user_display_name", displayName);
+                }
+             } else {
+                // C. Paciente
+                const { data: paciente } = await supabase
+                  .from("paciente")
+                  .select("usuario_id, nombres, apellidos")
+                  .eq("usuario_id", user.id)
+                  .maybeSingle();
+                
+                if (paciente) {
+                   const displayName = `${paciente.nombres} ${paciente.apellidos}`;
+                   setUserRole("PACIENTE");
+                   setUserName(displayName);
+                   if (typeof window !== "undefined") {
+                       localStorage.setItem("user_role", "PACIENTE");
+                       localStorage.setItem("user_display_name", displayName);
+                   }
+                } else {
+                   // Fallback absoluto
+                   const metaName = user.user_metadata?.full_name || "Usuario";
+                   setUserName(metaName);
+                   setUserRole("PACIENTE"); // Default safe
+                }
+             }
           }
         }
       }

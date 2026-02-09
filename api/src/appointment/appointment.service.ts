@@ -695,27 +695,39 @@ export class AppointmentService {
       throw new NotFoundException('Cita no encontrada');
     }
 
-    // --- VALIDACIÓN DE ESTADO ACTUAL ---
-    // SOLO las citas en estado "Reservada" (1) pueden cambiar de estado (a Cancelada)
-    if (cita.estado_id !== 1) {
-      throw new BadRequestException('Solo se pueden modificar citas que estén en estado Reservada.');
+    // Verificar si el usuario es administrador
+    let isAdmin = false;
+    if (userId) {
+      const { count } = await this.supabase
+        .from('administrador')
+        .select('*', { count: 'exact', head: true })
+        .eq('usuario_id', userId);
+      isAdmin = (count || 0) > 0;
     }
 
-    // --- RESTRICCIÓN PARA PACIENTES (24 Horas) ---
-    // Solo aplica si se está CANCELANDO (estado 3)
-    if (userId && estadoId === 3) {
-      const esPaciente = cita.paciente_id === userId;
+    if (!isAdmin) {
+      // --- VALIDACIÓN DE ESTADO ACTUAL ---
+      // SOLO las citas en estado "Reservada" (1) pueden cambiar de estado (a Cancelada)
+      if (cita.estado_id !== 1) {
+        throw new BadRequestException('Solo se pueden modificar citas que estén en estado Reservada.');
+      }
 
-      if (esPaciente) {
-        const ahora = new Date();
-        const fechaCita = new Date(cita.fecha_hora_inicio);
-        const diffMs = fechaCita.getTime() - ahora.getTime();
-        const diffHoras = diffMs / (1000 * 60 * 60);
+      // --- RESTRICCIÓN PARA PACIENTES (24 Horas) ---
+      // Solo aplica si se está CANCELANDO (estado 3)
+      if (userId && estadoId === 3) {
+        const esPaciente = cita.paciente_id === userId;
 
-        if (diffHoras < 24) {
-          throw new BadRequestException(
-            'No se puede cancelar la cita con menos de 24 horas de anticipación. Por favor, comunínquese con el consultorio.'
-          );
+        if (esPaciente) {
+          const ahora = new Date();
+          const fechaCita = new Date(cita.fecha_hora_inicio);
+          const diffMs = fechaCita.getTime() - ahora.getTime();
+          const diffHoras = diffMs / (1000 * 60 * 60);
+
+          if (diffHoras < 24) {
+            throw new BadRequestException(
+              'No se puede cancelar la cita con menos de 24 horas de anticipación. Por favor, comunínquese con el consultorio.'
+            );
+          }
         }
       }
     }
@@ -1159,8 +1171,12 @@ export class AppointmentService {
       .single();
 
     if (error) {
+      console.error('Error insertando documento en BD:', error);
+      if (error.code === '23505') { // Unique violations
+        throw new BadRequestException('El archivo ya existe para esta cita (nombre duplicado).');
+      }
       throw new InternalServerErrorException(
-        `Error guardando documento: ${error.message}`,
+        `Error guardando documento (DB): ${error.message}`,
       );
     }
 

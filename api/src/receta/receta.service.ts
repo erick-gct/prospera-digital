@@ -277,19 +277,28 @@ export class RecetaService {
         });
       }
 
-      // Espacio para firma
-      const yFirma = Math.max(yMeds + 50, 550);
+      // Espacio para firma - Aumentado para QR más grande
+      const yFirma = Math.max(yMeds + 180, 650);
 
-      // FIRMA DIGITAL (Si existe)
+      // Coordenadas para centrar firma
+      // A4 Width = 595. Center = 297.5
+      // Line Width = 250. Start = 172.5
+      const lineStart = 172;
+      const lineEnd = 422;
+      const lineWidth = lineEnd - lineStart;
+
+      // FIRMA DIGITAL / QR (Si existe)
       if (data.firmaBuffer) {
         try {
-          // Ajustar tamaño y posición de la firma
-          // Centrada respecto a la línea (350 a 530 -> ancho 180, centro 440)
-          // Asumimos un ancho de imagen de 100-120px
-          doc.image(data.firmaBuffer, 390, yFirma - 45, {
-            width: 100,
-            height: 50,
-            fit: [100, 50],
+          // Imagen más grande (3x-4x)
+          // Original: width 100. New: width 280
+          const imgWidth = 280;
+          const imgHeight = 140; // Ratio 2:1 aprox
+
+          doc.image(data.firmaBuffer, (595 - imgWidth) / 2, yFirma - imgHeight - 10, {
+            width: imgWidth,
+            height: imgHeight,
+            fit: [imgWidth, imgHeight],
             align: 'center',
             valign: 'bottom'
           });
@@ -298,17 +307,31 @@ export class RecetaService {
         }
       }
 
-      doc.moveTo(350, yFirma).lineTo(530, yFirma).stroke('#000');
-      doc
-        .fontSize(10)
-        .fillColor('#000')
-        .font('Helvetica')
-        .text('Firma del Especialista', 380, yFirma + 5);
+      // Línea de firma
+      doc.moveTo(lineStart, yFirma).lineTo(lineEnd, yFirma).stroke('#000');
 
+      // Texto "Firma del Especialista"
+      doc
+        .fontSize(11) // Ligeramente más grande
+        .fillColor('#000')
+        .font('Helvetica-Bold') // Negrita
+        .text('Firma del Especialista', lineStart, yFirma + 8, {
+          width: lineWidth,
+          align: 'center'
+        });
+
+      // Nombre del Podólogo
       const nombrePodologo = data.podologo
         ? `Dr. ${data.podologo.nombres} ${data.podologo.apellidos}`
         : 'Especialista';
-      doc.text(nombrePodologo, 380, yFirma + 18, { align: 'left' });
+
+      doc
+        .font('Helvetica')
+        .fontSize(10)
+        .text(nombrePodologo, lineStart, yFirma + 22, {
+          width: lineWidth,
+          align: 'center'
+        });
 
       // Footer
       doc
