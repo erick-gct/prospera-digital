@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { MapPin, Clock, Phone, Mail, Car, Accessibility, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function ClinicInfoPage() {
@@ -94,21 +95,17 @@ export default function ClinicInfoPage() {
           </div>
 
           {/* COLUMNA DERECHA: Mapa Visual (Placeholder) */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden h-full min-h-[400px] relative border border-gray-100">
-            {/* Aquí iría el componente de Google Maps o una imagen estática */}
-            <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
-              <div className="text-center p-8">
-                <MapPin className="w-12 h-12 text-[#20aca2] mx-auto mb-4 opacity-50" />
-                <span className="text-gray-500 font-medium block mb-2">Mapa de Ubicación</span>
-                <p className="text-sm text-gray-400 max-w-xs mx-auto">
-                  Aquí debes incrustar el `iframe` de Google Maps o una imagen de la fachada del consultorio.
-                </p>
-                {/* Botón simulado del mapa */}
-                <div className="mt-6">
-                  <span className="bg-white px-4 py-2 rounded-lg shadow-sm text-xs font-semibold text-gray-600 border border-gray-200">
-                    Ver ubicación ampliada
-                  </span>
-                </div>
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden h-full min-h-[400px] relative border border-gray-100 group">
+            <Image 
+              src="/assets/consultorio.jpg" 
+              alt="Fachada del Consultorio" 
+              fill
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
+              <div className="text-white">
+                 <h3 className="font-bold text-xl mb-1">Visítenos</h3>
+                 <p className="text-gray-200 text-sm">Contamos con instalaciones modernas y equipamiento de última generación.</p>
               </div>
             </div>
           </div>
