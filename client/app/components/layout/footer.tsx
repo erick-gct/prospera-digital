@@ -11,14 +11,6 @@ export function PublicFooter() {
             © {currentYear} Prospera Digital LLC. Todos los derechos reservados.
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <Link href="/privacy-policy" className="hover:text-primary">
-            Política de Privacidad
-          </Link>
-          <Link href="/terms-of-service" className="hover:text-primary">
-            Términos de Servicio
-          </Link>
-        </div>
       </div>
     </footer>
   );

@@ -7,32 +7,32 @@ export default function AboutPodiatristPage() {
   // Azul (Color del botón): text-[#2563eb]
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         
         {/* --- ENCABEZADO --- */}
-        <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
             Trayectoria y Compromiso
           </h1>
           {/* Línea decorativa en el Turquesa de tu imagen */}
-          <div className="h-1 w-20 bg-[#20aca2] mx-auto rounded-full"></div>
-          <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+          <div className="h-1 w-16 md:w-20 bg-[#20aca2] mx-auto rounded-full"></div>
+          <p className="mt-4 text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
             Conozca al profesional detrás de la salud de sus pies.
           </p>
         </div>
 
         {/* --- SECCIÓN PRINCIPAL: BIO --- */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-10">
-          <div className="md:flex">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8 md:mb-10">
+          <div className="flex flex-col md:flex-row">
             {/* Espacio para la FOTO */}
-            <div className="md:shrink-0 md:w-1/3 bg-slate-100 relative min-h-[320px] flex items-center justify-center">
+            <div className="w-full md:w-1/3 bg-slate-100 relative min-h-[250px] md:min-h-[320px] flex items-center justify-center">
               {/* Placeholder para la imagen */}
               <div className="text-center p-6">
-                <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center text-gray-400">
+                <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center text-gray-400">
                   <span className="text-xs">Foto</span>
                 </div>
-                <span className="text-sm text-gray-500 block">
+                <span className="text-xs md:text-sm text-gray-500 block">
                   Inserte imagen aquí<br/>
                   (Recomendado: 400x500px)
                 </span>
@@ -40,20 +40,20 @@ export default function AboutPodiatristPage() {
             </div>
 
             {/* Texto de la Bio */}
-            <div className="p-8 md:p-12 md:w-2/3 flex flex-col justify-center">
+            <div className="p-6 md:p-12 w-full md:w-2/3 flex flex-col justify-center">
               {/* Etiqueta en Azul del botón para contraste */}
               <div className="uppercase tracking-wide text-xs text-[#20aca2] font-bold mb-2">
                 Perfil Profesional
               </div>
-              <h2 className="text-3xl font-serif text-gray-900 mb-6">
+              <h2 className="text-2xl md:text-3xl font-serif text-gray-900 mb-4 md:mb-6">
                 Dr. [Nombre y Apellido]
               </h2>
-              <p className="text-gray-600 leading-relaxed mb-6 text-justify">
+              <p className="text-gray-600 leading-relaxed mb-6 text-justify text-sm md:text-base">
                 Como especialista en podología clínica, he dedicado mi carrera a entender la biomecánica del pie y su impacto en la salud general. Mi enfoque integra la medicina preventiva con tratamientos correctivos avanzados, asegurando que cada paciente reciba una solución adaptada a su estilo de vida.
               </p>
               
               <div className="mt-2 pt-6 border-t border-gray-100">
-                <p className="text-gray-800 font-medium italic font-serif">
+                <p className="text-gray-800 font-medium italic font-serif text-sm md:text-base">
                   "Un diagnóstico preciso es el primer paso hacia una recuperación efectiva."
                 </p>
                 <p className="text-gray-400 text-sm mt-2">- Dr. [Apellido]</p>
@@ -63,11 +63,11 @@ export default function AboutPodiatristPage() {
         </div>
 
         {/* --- GRID DE INFORMACIÓN --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 md:mb-12">
           {/* Formación */}
-          <div className="bg-white p-8 rounded-xl border-t-4 border-[#20aca2] shadow-sm hover:shadow-md transition-shadow">
+          <div className="bg-white p-6 md:p-8 rounded-xl border-t-4 border-[#20aca2] shadow-sm hover:shadow-md transition-shadow">
             {/* Icono en Turquesa */}
-            <GraduationCap className="w-10 h-10 text-[#20aca2] mb-4" />
+            <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-[#20aca2] mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-3">Formación Académica</h3>
             <ul className="space-y-3 text-sm text-gray-600">
               <li className="flex items-start">
@@ -86,8 +86,8 @@ export default function AboutPodiatristPage() {
           </div>
 
           {/* Especialidades */}
-          <div className="bg-white p-8 rounded-xl border-t-4 border-[#20aca2] shadow-sm hover:shadow-md transition-shadow">
-            <Award className="w-10 h-10 text-[#20aca2] mb-4" />
+          <div className="bg-white p-6 md:p-8 rounded-xl border-t-4 border-[#20aca2] shadow-sm hover:shadow-md transition-shadow">
+            <Award className="w-8 h-8 md:w-10 md:h-10 text-[#20aca2] mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-3">Especialidades</h3>
             <ul className="space-y-3 text-sm text-gray-600">
               <li className="flex items-start">
@@ -106,8 +106,8 @@ export default function AboutPodiatristPage() {
           </div>
 
           {/* Filosofía */}
-          <div className="bg-white p-8 rounded-xl border-t-4 border-[#20aca2] shadow-sm hover:shadow-md transition-shadow">
-            <HeartHandshake className="w-10 h-10 text-[#20aca2] mb-4" />
+          <div className="bg-white p-6 md:p-8 rounded-xl border-t-4 border-[#20aca2] shadow-sm hover:shadow-md transition-shadow">
+            <HeartHandshake className="w-8 h-8 md:w-10 md:h-10 text-[#20aca2] mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-3">Ética Médica</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
               Comprometido con la actualización constante y el trato humano. Cada consulta se realiza bajo estrictos protocolos de esterilización y con la tecnología más reciente del sector.
@@ -116,7 +116,7 @@ export default function AboutPodiatristPage() {
         </div>
 
         {/* --- SECCIÓN FINAL: CONTACTO --- */}
-        <div className="border-t border-gray-200 pt-10 mt-10">
+        <div className="border-t border-gray-200 pt-8 md:pt-10 mt-8 md:mt-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
             
             {/* Ubicación */}
