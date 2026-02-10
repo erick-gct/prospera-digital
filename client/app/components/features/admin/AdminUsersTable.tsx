@@ -44,6 +44,7 @@ import { AdminUserDetailsDialog } from "./AdminUserDetailsDialog";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { ProfileEditDialog } from "../perfil/ProfileEditDialog"; // Importar componente
 import { KeyRound, Pencil } from "lucide-react"; // Importar icono Pencil
+import { ApiRoutes } from "@/lib/api-routes";
 
 interface Usuario {
   usuario_id: string;
