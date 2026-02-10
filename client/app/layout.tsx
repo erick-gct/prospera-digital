@@ -3,6 +3,7 @@ import { Inter, Roboto } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner"; // 1. Importar Toaster
+import { GoogleTranslate } from "@/components/GoogleTranslate";
 import Image from "next/image";
 
 // Configuración de Inter como fuente principal
@@ -46,6 +47,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster richColors position="bottom-right" />
+        <GoogleTranslate />
       </body>
     </html>
   );

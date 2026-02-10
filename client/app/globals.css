@@ -57,6 +57,7 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+
   .theme {
     --animate-aurora: aurora 8s ease-in-out infinite alternate;
   }
@@ -66,32 +67,37 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
 
-@layer utilities  {
+@layer utilities {
   @keyframes aurora {
-  0% {
-    background-position: 0% 50%;
-    transform: rotate(-5deg) scale(0.9);
+    0% {
+      background-position: 0% 50%;
+      transform: rotate(-5deg) scale(0.9);
     }
-  25% {
-    background-position: 50% 100%;
-    transform: rotate(5deg) scale(1.1);
+
+    25% {
+      background-position: 50% 100%;
+      transform: rotate(5deg) scale(1.1);
     }
-  50% {
-    background-position: 100% 50%;
-    transform: rotate(-3deg) scale(0.95);
+
+    50% {
+      background-position: 100% 50%;
+      transform: rotate(-3deg) scale(0.95);
     }
-  75% {
-    background-position: 50% 0%;
-    transform: rotate(3deg) scale(1.05);
+
+    75% {
+      background-position: 50% 0%;
+      transform: rotate(3deg) scale(1.05);
     }
-  100% {
-    background-position: 0% 50%;
-    transform: rotate(-5deg) scale(0.9);
+
+    100% {
+      background-position: 0% 50%;
+      transform: rotate(-5deg) scale(0.9);
     }
   }
 
@@ -99,4 +105,55 @@
     animation: aurora 8s ease-in-out infinite alternate;
     background-size: 200% 200%;
   }
+}
+
+/* --- Google Translate Overrides --- */
+/* 1. Evitar que Google baje el contenido de la página */
+body {
+  top: 0 !important;
+  position: relative !important;
+}
+
+/* 2. Ocultar el Banner Superior (Frame) de Google */
+.skiptranslate.goog-te-banner-frame {
+  display: none !important;
+}
+
+iframe.skiptranslate {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* 3. Ocultar el widget original (por si acaso el CSS en línea falla) */
+#google_translate_element .goog-te-gadget-simple,
+#google_translate_element .goog-te-gadget-icon,
+#google_translate_element .goog-logo-link {
+  display: none !important;
+}
+
+/* 4. Limpieza visual extra (Tooltips y Highlights) */
+.goog-tooltip,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+div#goog-gt-tt {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* 5. Bloquear Spinners e Iconos de Carga (Crucial para Gráficos) */
+.goog-te-spinner-pos,
+.goog-te-spinner-animation,
+.goog-te-spinner {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
 }
