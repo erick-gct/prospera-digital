@@ -114,7 +114,7 @@ type StepProps = React.HTMLAttributes<HTMLDivElement> & {
 
 const Step = React.forwardRef<HTMLDivElement, StepProps>(
   ({ step, label, description, className, ...props }, ref) => {
-    const { activeStep, steps } = useStepperContext()
+    const { activeStep, steps, isLoading } = useStepperContext()
     const state =
       step < activeStep
         ? "completed"
@@ -127,7 +127,6 @@ const Step = React.forwardRef<HTMLDivElement, StepProps>(
     const Icon =
       step < activeStep ? Check : isLoading && step === activeStep ? Loader2 : null
     
-    const { isLoading } = useStepperContext()
     const shouldSpin = isLoading && step === activeStep
 
     return (
