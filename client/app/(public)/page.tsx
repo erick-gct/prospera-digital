@@ -263,7 +263,7 @@ export default function HomePage() {
                       Salud General
                     </h4>
                     <p className="text-sm md:text-base text-muted-foreground">
-                      Sntoma temprano de diabetes, artritis o mala circulación.
+                      Sintomas tempranos de diabetes, artritis o mala circulación.
                     </p>
                   </div>
                 </li>
