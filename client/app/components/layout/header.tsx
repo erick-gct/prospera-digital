@@ -171,17 +171,7 @@ export function AppHeader() {
         {/* Lado Derecho: Botones */}
         <div className="flex items-center gap-2">
           {/* Botón de Auditoría (solo para podólogos) */}
-          {userRole === 'podologo' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAuditModal(true)}
-              className="text-muted-foreground hover:text-primary"
-              title="Auditoría del sistema"
-            >
-              <Shield className="h-4 w-4" />
-            </Button>
-          )}
+{/* Botón de Auditoría eliminado para Podólogos */}
 
           <Button
             variant="outline"
