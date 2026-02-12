@@ -22,7 +22,23 @@ interface Patient {
   telefono: string | null
   email: string | null
   fecha_nacimiento: string | null
+  enfermedades: string | null
+  tipo_sangre: string | null
+  ultima_observacion: string | null
   total_citas: number
+}
+
+// Helper para calcular edad
+function calculateAge(dateString: string | null) {
+  if (!dateString) return null
+  const today = new Date()
+  const birthDate = new Date(dateString)
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const m = today.getMonth() - birthDate.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+  return age
 }
 
 export default function HistorialPage() {
@@ -31,6 +47,8 @@ export default function HistorialPage() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+
+  // ... (rest of the state and logic remains same until JSX)
 
   // Búsqueda con debounce
   const searchPatients = useCallback(async (cedula: string, apellido: string) => {
@@ -70,7 +88,7 @@ export default function HistorialPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
           <ClipboardList className="h-8 w-8 text-primary" />
-          Historial Médico
+          Historial Clínico de Citas
         </h1>
         <p className="text-muted-foreground mt-1">
           Consulta el historial de citas por paciente
@@ -168,7 +186,57 @@ export default function HistorialPage() {
                       </Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="pt-4 pb-4 space-y-6">
+                    {/* Resumen Clínico del Paciente */}
+                    <div className="bg-white rounded-lg p-4 border shadow-sm">
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-primary">
+                        <ClipboardList className="h-4 w-4" />
+                        Resumen Clínico & Datos Personales
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Edad y Nacimiento */}
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Edad / Nacimiento</span>
+                          <p className="text-sm font-medium">
+                            {calculateAge(patient.fecha_nacimiento)} años
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                             ({patient.fecha_nacimiento?.split('T')[0]})
+                          </p>
+                        </div>
+
+                        {/* Tipo de Sangre */}
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Tipo de Sangre</span>
+                          <p className="text-sm font-medium">
+                            {patient.tipo_sangre || "No registrado"}
+                          </p>
+                        </div>
+
+                         {/* Enfermedades */}
+                         <div className="space-y-1 md:col-span-2">
+                          <span className="text-xs text-muted-foreground">Enfermedades / Antecedentes</span>
+                          <p className="text-sm font-medium break-words">
+                            {patient.enfermedades || "No registrado"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Último Diagnóstico */}
+                      <div className="mt-4 pt-3 border-t">
+                         <span className="text-xs text-muted-foreground block mb-1">Último Diagnóstico / Observación Reciente</span>
+                         {patient.ultima_observacion ? (
+                           <p className="text-sm bg-blue-50 text-blue-900 p-2 rounded">
+                             {patient.ultima_observacion}
+                           </p>
+                         ) : (
+                           <p className="text-sm text-muted-foreground italic">
+                             Sin observaciones registradas en citas recientes.
+                           </p>
+                         )}
+                      </div>
+                    </div>
+
                     <PatientTimeline pacienteId={patient.usuario_id} />
                   </AccordionContent>
                 </AccordionItem>

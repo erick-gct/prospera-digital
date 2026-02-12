@@ -19,7 +19,13 @@ export class DashboardService {
    */
   async getPatientDashboard(userId: string) {
     // 1. Próxima cita (la más próxima con estado "Reservada")
-    const ahora = new Date().toISOString();
+    // Fix: Usar una ventana de tiempo que incluya el día de hoy completo (incluso si la hora ya pasó).
+    // Restamos 24h al inicio del día para manejar diferencias de zona horaria y asegurar que no perdemos citas de "hoy".
+    const searchDate = new Date();
+    searchDate.setHours(0, 0, 0, 0);
+    searchDate.setDate(searchDate.getDate() - 1);
+    const searchDateStr = searchDate.toISOString();
+
     const { data: proximaCita } = await this.supabase
       .from('cita')
       .select(
@@ -36,7 +42,7 @@ export class DashboardService {
       )
       .eq('paciente_id', userId)
       .eq('estado_id', 1) // Reservada
-      .gte('fecha_hora_inicio', ahora)
+      .gte('fecha_hora_inicio', searchDateStr)
       .order('fecha_hora_inicio', { ascending: true })
       .limit(1)
       .single();

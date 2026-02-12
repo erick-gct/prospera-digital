@@ -68,7 +68,7 @@ export const ApiRoutes = {
     tiposSangre: `${API_BASE_URL}/common/tipos-sangre`,
   },
 
-  // Historial Médico
+  // Historial Clínico
   historial: {
     searchPatients: (cedula: string, apellido: string) => {
       const params = new URLSearchParams();

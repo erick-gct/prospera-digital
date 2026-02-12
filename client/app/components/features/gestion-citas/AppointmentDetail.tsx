@@ -79,6 +79,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
   const [isClosing, setIsClosing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [citaEstado, setCitaEstado] = useState(cita.estado_id)
+  const [citaEstadoNombre, setCitaEstadoNombre] = useState(cita.estado_cita?.nombre || "Pendiente")
 
   // Ref para documentos
   const documentosRef = useRef<DocumentosSectionRef>(null)
@@ -366,6 +367,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
 
       toast.success('Cita cerrada exitosamente')
       setCitaEstado(2)
+      setCitaEstadoNombre("Completada")
       await loadDetail()
     } catch (error) {
       console.error('Error:', error)
@@ -394,7 +396,7 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
         </Button>
         <div className="flex items-center gap-3">
           <Badge className={cn("text-sm px-3 py-1", colors.bg, colors.text)}>
-            {cita.estado_cita?.nombre || "Pendiente"}
+            {citaEstadoNombre}
           </Badge>
           {isEditable ? (
             <>

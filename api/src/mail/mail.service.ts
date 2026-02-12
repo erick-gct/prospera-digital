@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { logAuditEvent } from '../common/audit-context';
 
 // Tipos para el logging
 type TipoNotificacion = 'reserva' | 'reagendamiento' | 'cancelacion';
@@ -50,7 +51,27 @@ export class MailService {
    */
   private async logNotification(data: NotificationLogData) {
     try {
-      await this.supabase.from('log_notificaciones').insert(data);
+      const { data: logEntry, error } = await this.supabase
+        .from('log_notificaciones')
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error insertando log_notificaciones:', error);
+        return;
+      }
+
+      // Auditoría del registro de notificación
+      if (logEntry) {
+        await logAuditEvent(this.supabase, {
+          tabla: 'log_notificaciones',
+          registroId: logEntry.id,
+          accion: 'INSERT',
+          usuarioId: null, // Sistema
+          datosNuevos: data as unknown as Record<string, unknown>,
+        });
+      }
     } catch (error) {
       console.error('Error al registrar log de notificación:', error);
     }
@@ -217,7 +238,7 @@ export class MailService {
     const body = `
       <p>Hola <strong>${nombre}</strong>,</p>
       <p>Gracias por registrarte en nuestro sistema de gestión podológica.</p>
-      <p>Tu cuenta ha sido creada exitosamente. Ahora puedes agendar tus citas y revisar tu historial médico en línea.</p>
+      <p>Tu cuenta ha sido creada exitosamente. Ahora puedes agendar tus citas y revisar tu historial clínico en línea.</p>
       <center>
         <a href="http://localhost:3000/login" class="button" style="color: white;">Ingresar al Sistema</a>
       </center>

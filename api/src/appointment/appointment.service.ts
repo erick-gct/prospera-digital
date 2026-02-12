@@ -1149,7 +1149,7 @@ export class AppointmentService {
     // Verificar que la cita existe
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
-      .select('id')
+      .select('id, podologo_id')
       .eq('id', citaId)
       .single();
 
@@ -1180,6 +1180,20 @@ export class AppointmentService {
       );
     }
 
+    // 4. Auditoría INSERT
+    await logAuditEvent(this.supabase, {
+      tabla: 'documentos_clinicos',
+      registroId: data.id,
+      accion: 'INSERT',
+      usuarioId: cita.podologo_id, // Asumimos que el podólogo de la cita sube el doc
+      usuarioNombre: null, // Podríamos buscarlo, pero por eficiencia usamos ID
+      datosNuevos: {
+        cita_id: citaId,
+        nombre_archivo: fileData.nombre,
+        tipo_archivo: fileData.tipo,
+      },
+    });
+
     return data;
   }
 
@@ -1208,6 +1222,25 @@ export class AppointmentService {
    * Eliminar un documento
    */
   async deleteDocument(documentId: number) {
+    // 1. Obtener datos antes de borrar para auditoría
+    const { data: doc } = await this.supabase
+      .from('documentos_clinicos')
+      .select('cita_id, nombre_archivo')
+      .eq('id', documentId)
+      .single();
+
+    // Obtener podólogo de la cita para registrar como actor
+    let podologoId = null;
+    if (doc) {
+      const { data: cita } = await this.supabase
+        .from('cita')
+        .select('podologo_id')
+        .eq('id', doc.cita_id)
+        .single();
+      if (cita) podologoId = cita.podologo_id;
+    }
+
+    // 2. Borrar
     const { error } = await this.supabase
       .from('documentos_clinicos')
       .delete()
@@ -1217,6 +1250,17 @@ export class AppointmentService {
       throw new InternalServerErrorException(
         `Error eliminando documento: ${error.message}`,
       );
+    }
+
+    // 3. Auditoría DELETE
+    if (doc) {
+      await logAuditEvent(this.supabase, {
+        tabla: 'documentos_clinicos',
+        registroId: documentId,
+        accion: 'DELETE',
+        usuarioId: podologoId,
+        datosAnteriores: doc,
+      });
     }
 
     return { message: 'Documento eliminado correctamente' };

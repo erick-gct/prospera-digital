@@ -28,7 +28,9 @@ export class HistorialService {
         apellidos,
         telefono,
         email,
-        fecha_nacimiento
+        fecha_nacimiento,
+        enfermedades,
+        tipos_sangre (nombre)
       `,
       )
       .eq('estado_paciente_id', 1); // 1 = Activo
@@ -54,22 +56,35 @@ export class HistorialService {
       );
     }
 
-    // Obtener conteo de citas para cada paciente
-    const patientsWithCounts = await Promise.all(
-      (data || []).map(async (patient) => {
+    // Obtener conteo de citas y última observación para cada paciente
+    const patientsWithExtras = await Promise.all(
+      (data || []).map(async (patient: any) => {
+        // 1. Total citas
         const { count } = await this.supabase
           .from('cita')
           .select('id', { count: 'exact', head: true })
           .eq('paciente_id', patient.usuario_id);
 
+        // 2. Última cita (para obtener diagnóstico reciente)
+        const { data: ultimaCita } = await this.supabase
+          .from('cita')
+          .select('observaciones_podologo')
+          .eq('paciente_id', patient.usuario_id)
+          .neq('estado_id', 3) // Excluir canceladas? O incluir todo? Mejor excluir canceladas para que sea diagnóstico válido
+          .order('fecha_hora_inicio', { ascending: false })
+          .limit(1)
+          .single();
+
         return {
-          ...patient,
+          ...patient, // Incluye enfermedades directo
+          tipo_sangre: patient.tipos_sangre?.nombre || null,
           total_citas: count || 0,
+          ultima_observacion: ultimaCita?.observaciones_podologo || null,
         };
       }),
     );
 
-    return patientsWithCounts;
+    return patientsWithExtras;
   }
 
   /**
