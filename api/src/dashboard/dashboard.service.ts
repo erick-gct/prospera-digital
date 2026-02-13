@@ -556,12 +556,10 @@ export class DashboardService {
       .slice(0, 5);
 
     // 3. Distribución de Motivos (Citas Globales) - Top 5 + Otros
-    // OPTIMIZACIÓN: Filtrar por podólogo
-    let queryMotivos = this.supabase.from('cita').select('motivo_cita');
-    if (userId) {
-      queryMotivos = queryMotivos.eq('podologo_id', userId);
-    }
-    const { data: citasMotivos } = await queryMotivos;
+    // GLOBAL (Todos los podólogos)
+    const { data: citasMotivos } = await this.supabase
+      .from('cita')
+      .select('motivo_cita');
 
     const motivosCount: Record<string, number> = {};
     if (citasMotivos) {
@@ -585,27 +583,18 @@ export class DashboardService {
 
     // 4. Mapa de Calor Semanal (Ocupación)
     // Analizar todas las citas NO canceladas de los últimos 3 meses (Relativo al mes seleccionado)
-    // Esto permite ver la tendencia histórica en ese punto del tiempo.
+    // GLOBAL (Todos los podólogos)
     const heatmapEndDate = new Date(endOfMonth);
     const heatmapStartDate = new Date(heatmapEndDate);
     heatmapStartDate.setMonth(heatmapStartDate.getMonth() - 3);
 
-    // OPTIMIZACIÓN: Filtrar por podólogo
-    let queryHeatmap = this.supabase
+    const { data: citasHeatmap } = await this.supabase
       .from('cita')
       .select('fecha_hora_inicio')
       .neq('estado_id', 3) // No canceladas
       .gte('fecha_hora_inicio', heatmapStartDate.toISOString())
       .lte('fecha_hora_inicio', heatmapEndDate.toISOString());
 
-    if (userId) {
-      queryHeatmap = queryHeatmap.eq('podologo_id', userId);
-    }
-
-    const { data: citasHeatmap } = await queryHeatmap;
-
-    // Matriz 7 días (0=Dom, 6=Sab) x 12 horas (8am - 7pm)
-    // Formato: { day: number, hour: number, value: number }
     const heatmapCounts: Record<string, number> = {};
 
     if (citasHeatmap) {
@@ -636,17 +625,11 @@ export class DashboardService {
     }
 
     // 5. Tasa de Retención (Pacientes recurrentes / Total pacientes únicos)
-    // OPTIMIZACIÓN: Filtrar por podólogo si existe para evitar scan de toda la tabla
-    let query = this.supabase
+    // GLOBAL (Todos los podólogos)
+    const { data: citasUnicas } = await this.supabase
       .from('cita')
       .select('paciente_id')
       .not('paciente_id', 'is', null);
-
-    if (userId) {
-      query = query.eq('podologo_id', userId);
-    }
-
-    const { data: citasUnicas } = await query;
 
     const pacientesCounts: Record<number, number> = {};
     citasUnicas?.forEach(c => {
@@ -659,9 +642,26 @@ export class DashboardService {
       ? (recurrentes / pacientesUnicos) * 100
       : 0;
 
-    // 6. Tasa de Ausentismo (Ausentes / Total Citas)
-    const totalCitasSafe = totalCitas || 0;
-    const tasaAusentismo = totalCitasSafe > 0 ? ((ausentes || 0) / totalCitasSafe) * 100 : 0;
+    // 6. Tasa de Ausentismo GLOBAL (Ausentes / Total Citas del MES en todo el consultorio)
+    // Necesitamos total citas global del mes y ausentes global del mes
+    const { count: globalTotalCitas } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    const { count: globalAusentes } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('estado_id', 4) // Ausente
+      .gte('fecha_hora_inicio', startOfMonth.toISOString())
+      .lte('fecha_hora_inicio', endOfMonth.toISOString());
+
+    const tasaAusentismo = (globalTotalCitas || 0) > 0
+      ? ((globalAusentes || 0) / (globalTotalCitas || 0)) * 100
+      : 0;
+
+
 
     return {
       podologo: podologo

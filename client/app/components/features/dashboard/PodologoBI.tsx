@@ -76,7 +76,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
                 />
             </div>
             <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                Aproximadamente el <span className="font-medium text-indigo-600">{data.tasaRetencion}%</span> de tus pacientes han regresado a tu consultorio por otra cita.
+                Aproximadamente el <span className="font-medium text-indigo-600">{data.tasaRetencion}%</span> de los pacientes han regresado al consultorio por otra cita.
             </p>
         </CardContent>
       </Card>
@@ -86,7 +86,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
         <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <UserMinus className="h-4 w-4 text-orange-500" />
-                Tasa de Ausentismo
+                Tasa de Ausentismo (Global)
             </CardTitle>
         </CardHeader>
         <CardContent>
@@ -101,7 +101,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
                 />
             </div>
             <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                El <span className="font-medium text-orange-600">{data.tasaAusentismo}%</span> de tus citas programada resultaron en ausencia del paciente.
+                El <span className="font-medium text-orange-600">{data.tasaAusentismo}%</span> de las citas del consultorio resultaron en ausencia.
             </p>
         </CardContent>
       </Card>
@@ -113,7 +113,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
             <Footprints className="h-5 w-5" />
             Patologías Más Frecuentes
           </CardTitle>
-          <CardDescription>Basado en fichas de evaluación clínica</CardDescription>
+          <CardDescription>Basado en fichas de evaluación (Global)</CardDescription>
         </CardHeader>
         <CardContent className="h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -142,7 +142,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
       <Card className="col-span-1 md:col-span-1 lg:col-span-2 shadow-sm border-blue-100/50">
         <CardHeader>
           <CardTitle className="text-lg text-primary">Motivos de Visita</CardTitle>
-          <CardDescription>Distribución global</CardDescription>
+          <CardDescription>Distribución global del consultorio</CardDescription>
         </CardHeader>
         <CardContent className="h-[250px]">
            <ResponsiveContainer width="100%" height="100%">
@@ -174,7 +174,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
                 <Flame className="h-5 w-5 text-orange-500" />
                 Mapa de Calor (Horarios Pico)
             </CardTitle>
-            <CardDescription>Intensidad (Trimestre hasta mes seleccionado)</CardDescription>
+            <CardDescription>Intensidad Global (Trimestre hasta mes seleccionado)</CardDescription>
         </CardHeader>
         <CardContent>
              <div className="grid grid-cols-[auto_repeat(6,1fr)] gap-1 text-xs">

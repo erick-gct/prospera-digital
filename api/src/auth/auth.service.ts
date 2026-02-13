@@ -266,6 +266,13 @@ export class AuthService {
       if (podologo) userName = podologo.nombres;
     }
 
+    // Base URL lógica consistente con MailService
+    const baseUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      (this.configService.get<string>('NODE_ENV') === 'production'
+        ? 'https://prospira.vip'
+        : 'http://localhost:3000');
+
     // 2. Generar Link de Recuperación con Supabase Admin
     // Usamos generateLink con type 'recovery'
     const { data: linkData, error: linkError } = await this.supabase.auth.admin.generateLink({
@@ -273,7 +280,7 @@ export class AuthService {
       email: email,
       options: {
         // Redirigir al endpoint de callback (sin query params para evitar errores de encoding)
-        redirectTo: `${this.configService.get('FRONTEND_URL') || 'http://localhost:3000'}/auth/callback`,
+        redirectTo: `${baseUrl}/auth/callback`,
       },
     });
 
