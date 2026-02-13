@@ -53,6 +53,7 @@ interface DashboardData {
     completadas: number
     reservadas: number
     canceladas: number
+    ausentes: number
   }
   pacientes: {
     total: number
@@ -87,6 +88,7 @@ interface DashboardData {
     distribucionMotivos: { name: string; value: number }[];
     semanalHeatmap: { day: string; hour: number; value: number }[];
     tasaRetencion: number;
+    tasaAusentismo: number;
   }
   proximasCitas?: {
     id: number
@@ -108,6 +110,10 @@ const chartConfig = {
   canceladas: {
     label: "Canceladas",
     color: "#EF4444",
+  },
+  ausentes: {
+    label: "Ausentes",
+    color: "#F97316",
   },
 } satisfies ChartConfig
 
@@ -192,6 +198,7 @@ export function DashboardPodologo() {
     { name: "Completadas", value: data.estadisticas.completadas, fill: "#22C55E" },
     { name: "Reservadas", value: data.estadisticas.reservadas, fill: "#3B82F6" },
     { name: "Canceladas", value: data.estadisticas.canceladas, fill: "#EF4444" },
+    { name: "Ausentes", value: data.estadisticas.ausentes || 0, fill: "#F97316" },
   ].filter(item => item.value > 0)
 
   const nombreCompleto = data.podologo 
@@ -283,13 +290,19 @@ export function DashboardPodologo() {
                   </span>
                   <span className="font-bold text-red-600">{data.estadisticas.canceladas}</span>
                 </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-orange-600 flex items-center gap-1">
+                    <UserX className="h-4 w-4" /> Ausentes
+                  </span>
+                  <span className="font-bold text-orange-600">{data.estadisticas.ausentes || 0}</span>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Stats cards */}
-        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -341,6 +354,20 @@ export function DashboardPodologo() {
                 </div>
                 <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
                   <XCircle className="h-5 w-5 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-orange-600">{data.estadisticas.ausentes || 0}</p>
+                  <p className="text-xs text-muted-foreground">Ausentes</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <UserX className="h-5 w-5 text-orange-600" />
                 </div>
               </div>
             </CardContent>

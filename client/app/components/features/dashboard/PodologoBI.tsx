@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pill, Activity, Footprints, Flame, Users, CalendarClock } from "lucide-react";
+import { Pill, Activity, Footprints, Flame, Users, CalendarClock, UserMinus } from "lucide-react";
 
 interface BIAnalytics {
   topPatologias: { name: string; value: number }[];
@@ -24,6 +24,7 @@ interface BIAnalytics {
   distribucionMotivos: { name: string; value: number }[];
   semanalHeatmap: { day: string; hour: number; value: number }[];
   tasaRetencion: number;
+  tasaAusentismo: number;
 }
 
 interface PodologoBIProps {
@@ -76,6 +77,31 @@ export default function PodologoBI({ data }: PodologoBIProps) {
             </div>
             <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
                 Aproximadamente el <span className="font-medium text-indigo-600">{data.tasaRetencion}%</span> de tus pacientes han regresado a tu consultorio por otra cita.
+            </p>
+        </CardContent>
+      </Card>
+
+      {/* KPI Tasa de Ausentismo (Nueva) */}
+      <Card className="col-span-1 shadow-sm border-orange-100/50 bg-gradient-to-br from-white to-orange-50/30">
+        <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <UserMinus className="h-4 w-4 text-orange-500" />
+                Tasa de Ausentismo
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold text-orange-600">{data.tasaAusentismo}%</span>
+                <span className="text-xs text-muted-foreground">Citas no asistidas</span>
+            </div>
+            <div className="h-2 w-full bg-slate-100 rounded-full mt-3 overflow-hidden">
+                <div 
+                    className="h-full bg-orange-500 rounded-full transition-all duration-1000" 
+                    style={{ width: `${data.tasaAusentismo}%` }}
+                />
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                El <span className="font-medium text-orange-600">{data.tasaAusentismo}%</span> de tus citas programada resultaron en ausencia del paciente.
             </p>
         </CardContent>
       </Card>
@@ -148,7 +174,7 @@ export default function PodologoBI({ data }: PodologoBIProps) {
                 <Flame className="h-5 w-5 text-orange-500" />
                 Mapa de Calor (Horarios Pico)
             </CardTitle>
-            <CardDescription>Intensidad de citas (Últimos 3 meses)</CardDescription>
+            <CardDescription>Intensidad (Trimestre hasta mes seleccionado)</CardDescription>
         </CardHeader>
         <CardContent>
              <div className="grid grid-cols-[auto_repeat(6,1fr)] gap-1 text-xs">

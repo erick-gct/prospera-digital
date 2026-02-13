@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { Clock, User, FileText, ClipboardEdit, CalendarX, CalendarClock, Loader2, Eye } from "lucide-react"
+import { Clock, User, FileText, ClipboardEdit, CalendarX, CalendarClock, Loader2, Eye, UserMinus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -47,6 +47,8 @@ export interface CitaGestion {
     telefono: string | null
     email: string | null
     fecha_nacimiento: string | null
+    riesgo_ausencia?: boolean
+    conteo_ausencias?: number
   } | null
   estado_cita: {
     id: number
@@ -68,6 +70,7 @@ const estadoColors: Record<number, { bg: string; text: string; border: string }>
   1: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
   2: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200" },
   3: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
+  4: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
 }
 
 // Opciones de estado
@@ -125,6 +128,7 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
       1: "regresar a Reservada",
       2: "marcar como Completada",
       3: "cancelar",
+      4: "marcar como Ausente",
     }
     setConfirmDialog({
       open: true,
@@ -207,6 +211,11 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                         <span className="text-sm text-muted-foreground">
                           • C.I. {cita.paciente.cedula}
                         </span>
+                        {cita.paciente.riesgo_ausencia && (
+                          <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] gap-1 px-1.5 h-5 ml-1">
+                            ⚠️ Riesgo de Ausencia
+                          </Badge>
+                        )}
                       </div>
                     )}
 
@@ -261,17 +270,30 @@ export function AppointmentsList({ citas, isLoading, onSelectCita, selectedDate,
                         </Button>
                       )}
 
-                      {estadoId !== 3 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => openConfirmDialog(cita, 3)}
-                          disabled={isUpdating}
-                          title="Cancelar cita"
-                        >
-                          <CalendarX className="h-4 w-4" />
-                        </Button>
+                      {estadoId === 1 && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                            onClick={() => openConfirmDialog(cita, 4)}
+                            disabled={isUpdating}
+                            title="Marcar como Ausente"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => openConfirmDialog(cita, 3)}
+                            disabled={isUpdating}
+                            title="Cancelar cita"
+                          >
+                            <CalendarX className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>

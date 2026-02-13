@@ -5,7 +5,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { logAuditEvent } from '../common/audit-context';
 
 // Tipos para el logging
-type TipoNotificacion = 'reserva' | 'reagendamiento' | 'cancelacion';
+type TipoNotificacion = 'reserva' | 'reagendamiento' | 'cancelacion' | 'ausencia';
+
+// ... (existing code)
+
+
+
+
 type EstadoNotificacion = 'enviado' | 'fallido';
 
 interface NotificationLogData {
@@ -23,6 +29,7 @@ export class MailService {
   private resend: Resend;
   private fromAddress: string;
   private supabase: SupabaseClient;
+  private baseUrl: string;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
@@ -30,10 +37,16 @@ export class MailService {
       this.configService.get<string>('MAIL_FROM_ADDRESS') ||
       'team@prospira.vip';
 
+    const env = this.configService.get<string>('NODE_ENV');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    this.baseUrl = frontendUrl || (env === 'production' ? 'https://prospira.vip' : 'http://localhost:3000');
+
     if (!apiKey) {
       console.warn(
         '⚠️ ADVERTENCIA: RESEND_API_KEY no está definida. Los correos no se enviarán.',
       );
+    } else {
+      console.log(`(Mail) Servicio iniciado. Base URL: ${this.baseUrl}`);
     }
 
     this.resend = new Resend(apiKey);
@@ -44,6 +57,90 @@ export class MailService {
       'SUPABASE_SERVICE_ROLE_KEY',
     );
     this.supabase = createClient(supabaseUrl!, supabaseKey!);
+  }
+
+  /**
+   * Enviar notificación de AUSENCIA de paciente
+   */
+  async sendAppointmentAbsenceEmail(
+    email: string,
+    nombrePaciente: string,
+    fecha: string,
+    hora: string,
+    nombrePodologo: string,
+    citaId: number,
+    destinatarioId: string,
+    podologoEmail?: string,
+  ) {
+    const fechaCreacion = new Date().toISOString();
+
+    // 1. Correo Paciente (Aviso cortés)
+    const title = 'Te extrañamos en tu cita';
+    const body = `
+      <p>Hola <strong>${nombrePaciente}</strong>,</p>
+      <p>Notamos que no pudiste asistir a tu cita programada para hoy.</p>
+      <div class="warning" style="background-color: #fff7ed; border-left-color: #f97316;">
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li>📅 <strong>Fecha:</strong> ${fecha}</li>
+          <li>🕐 <strong>Hora:</strong> ${hora}</li>
+          <li>👨‍⚕️ <strong>Especialista:</strong> ${nombrePodologo}</li>
+        </ul>
+      </div>
+      <p>Entendemos que pueden surgir imprevistos. Sin embargo, tu salud podológica es nuestra prioridad.</p>
+      <p>Por favor, <strong>reprograma tu cita lo antes posible</strong> para continuar con tu tratamiento.</p>
+      <center>
+        <a href="${this.baseUrl}/citas" class="button" style="background-color: #f97316; color: white;">Reprogramar Cita</a>
+      </center>
+    `;
+
+    const html = this.getHtmlTemplate(title, body, '#f97316'); // Orange
+    const resultPaciente = await this.sendEmail(
+      email,
+      'No asististe a tu cita - Prospera Digital',
+      html,
+    );
+
+    // 2. Correo Podólogo (Reporte)
+    if (podologoEmail) {
+      const bodyPodologo = `
+         <p>El paciente ha sido marcado como <strong>AUSENTE</strong>.</p>
+         <div class="card" style="border-left-color: #f97316; background: #fff7ed;">
+           <div style="margin-bottom: 5px;"><strong>📅 Fecha:</strong> ${fecha}</div>
+           <div style="margin-bottom: 5px;"><strong>🕐 Hora:</strong> ${hora}</div>
+           <div style="margin-top: 10px; font-size: 13px; color: #c2410c;">
+             <em>Se ha enviado un correo al paciente invitándole a reagendar.</em>
+           </div>
+         </div>
+        `;
+
+      const htmlPodologo = this.getPodologistHtmlTemplate(
+        'Paciente Ausente',
+        bodyPodologo,
+        nombrePaciente,
+        '#f97316' // Orange
+      );
+
+      await this.sendEmail(
+        podologoEmail,
+        `AUSENCIA: ${nombrePaciente} - ${fecha}`,
+        htmlPodologo
+      );
+    }
+
+    // Registrar en log
+    await this.logNotification({
+      cita_id: citaId,
+      destinatario_id: destinatarioId,
+      tipo_notificacion: 'ausencia',
+      estado: resultPaciente.success ? 'enviado' : 'fallido',
+      fecha_creacion: fechaCreacion,
+      fecha_envio: resultPaciente.success ? new Date().toISOString() : null,
+      error_mensaje: resultPaciente.success
+        ? null
+        : resultPaciente.error || 'Error desconocido',
+    });
+
+    return resultPaciente;
   }
 
   /**
@@ -216,7 +313,7 @@ export class MailService {
             ${body}
 
             <center>
-             <a href="http://localhost:3000/gestion-citas" class="btn-action">Gestionar en Plataforma</a>
+             <a href="${this.baseUrl}/gestion-citas" class="btn-action">Gestionar en Plataforma</a>
             </center>
           </div>
           <div class="footer">
@@ -240,7 +337,7 @@ export class MailService {
       <p>Gracias por registrarte en nuestro sistema de gestión podológica.</p>
       <p>Tu cuenta ha sido creada exitosamente. Ahora puedes agendar tus citas y revisar tu historial clínico en línea.</p>
       <center>
-        <a href="http://localhost:3000/login" class="button" style="color: white;">Ingresar al Sistema</a>
+        <a href="${this.baseUrl}/login" class="button" style="color: white;">Ingresar al Sistema</a>
       </center>
     `;
 
@@ -449,7 +546,7 @@ export class MailService {
       </div>
       <p>Si deseas agendar una nueva cita, puedes hacerlo desde tu cuenta en cualquier momento.</p>
       <center>
-        <a href="http://localhost:3000/citas" class="button" style="color: white;">Agendar Nueva Cita</a>
+        <a href="${this.baseUrl}/citas" class="button" style="color: white;">Agendar Nueva Cita</a>
       </center>
     `;
 

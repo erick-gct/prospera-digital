@@ -293,18 +293,54 @@ export class AppointmentService {
     const pacienteMap = new Map(pacientes?.map((p) => [p.usuario_id, p]) || []);
     const estadoMap = new Map(estados?.map((e) => [e.id, e]) || []);
 
+    // 3.1 CÁLCULO DE RIESGO DE AUSENCIA
+    // Buscar citas ausentes (estado 4) de los últimos 6 meses para estos pacientes
+    let absencesMap = new Map<string, number>();
+    if (pacienteIds.length > 0) {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const { data: ausencias } = await this.supabase
+        .from('cita')
+        .select('paciente_id')
+        .in('paciente_id', pacienteIds)
+        .eq('estado_id', 4) // Ausente
+        .gte('fecha_hora_inicio', sixMonthsAgo.toISOString());
+
+      if (ausencias) {
+        ausencias.forEach(a => {
+          const current = absencesMap.get(a.paciente_id) || 0;
+          absencesMap.set(a.paciente_id, current + 1);
+        });
+      }
+    }
+
     // 4. Enriquecer citas
-    const citasEnriquecidas = citas.map((cita) => ({
-      id: cita.id,
-      fecha_hora_inicio: cita.fecha_hora_inicio,
-      motivo_cita: cita.motivo_cita,
-      observaciones_paciente: cita.observaciones_paciente,
-      observaciones_podologo: cita.observaciones_podologo,
-      procedimientos_realizados: cita.procedimientos_realizados,
-      estado_id: cita.estado_id,
-      paciente: pacienteMap.get(cita.paciente_id) || null,
-      estado_cita: estadoMap.get(cita.estado_id) || null,
-    }));
+    const citasEnriquecidas = citas.map((cita) => {
+      const paciente = pacienteMap.get(cita.paciente_id) || null;
+      let pacienteConRiesgo: any = null;
+
+      if (paciente) {
+        const ausencias = absencesMap.get(paciente.usuario_id) || 0;
+        pacienteConRiesgo = {
+          ...paciente,
+          conteo_ausencias: ausencias,
+          riesgo_ausencia: ausencias > 2 // UMBRAL DE RIESGO
+        };
+      }
+
+      return {
+        id: cita.id,
+        fecha_hora_inicio: cita.fecha_hora_inicio,
+        motivo_cita: cita.motivo_cita,
+        observaciones_paciente: cita.observaciones_paciente,
+        observaciones_podologo: cita.observaciones_podologo,
+        procedimientos_realizados: cita.procedimientos_realizados,
+        estado_id: cita.estado_id,
+        paciente: pacienteConRiesgo,
+        estado_cita: estadoMap.get(cita.estado_id) || null,
+      };
+    });
 
     return citasEnriquecidas;
   }
@@ -679,8 +715,8 @@ export class AppointmentService {
    * Cambiar el estado de una cita
    */
   async updateStatus(citaId: number, estadoId: number, userId?: string) {
-    // Verificar que el estado es válido (1, 2 o 3)
-    if (![1, 2, 3].includes(estadoId)) {
+    // Verificar que el estado es válido (1, 2, 3 o 4)
+    if (![1, 2, 3, 4].includes(estadoId)) {
       throw new BadRequestException('Estado no válido');
     }
 
@@ -796,9 +832,59 @@ export class AppointmentService {
         }
       } catch (error) {
         console.error('Error enviando receta automática:', error);
-        // No bloqueamos el flujo principal, solo logueamos
       }
     }
+
+    // --- NOTIFICACIÓN DE AUSENCIA (Estado 4) ---
+    if (estadoId === 4) {
+      try {
+        const { data: paciente } = await this.supabase
+          .from('paciente')
+          .select('email, nombres, apellidos')
+          .eq('usuario_id', cita.paciente_id)
+          .single();
+
+        const { data: podologo } = await this.supabase
+          .from('podologo')
+          .select('email, nombres, apellidos')
+          .eq('usuario_id', cita.podologo_id)
+          .single();
+
+        if (paciente && paciente.email) {
+          const fechaObj = new Date(cita.fecha_hora_inicio);
+          const fechaFormateada = fechaObj.toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
+          const horaFormateada = fechaObj.toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
+          const nombrePodologo = podologo
+            ? `Dr. ${podologo.nombres} ${podologo.apellidos}`
+            : 'Especialista';
+
+          await this.mailService.sendAppointmentAbsenceEmail(
+            paciente.email,
+            nombrePaciente,
+            fechaFormateada,
+            horaFormateada,
+            nombrePodologo,
+            citaId,
+            cita.paciente_id,
+            podologo?.email || undefined,
+          );
+        }
+      } catch (error) {
+        console.error('Error enviando notificación de ausencia:', error);
+      }
+    }
+
+
 
     if (estadoId === 3) {
       // Paciente cancelando

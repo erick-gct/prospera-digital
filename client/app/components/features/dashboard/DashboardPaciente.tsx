@@ -17,7 +17,8 @@ import {
   History,
   Footprints,
   CalendarX,
-  RefreshCw
+  RefreshCw,
+  UserMinus
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -62,6 +63,7 @@ interface DashboardData {
     completadas: number
     reservadas: number
     canceladas: number
+    ausentes: number
   }
   documentos: number
   recetas: number
@@ -397,6 +399,20 @@ export function DashboardPaciente() {
                 </div>
                 <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
                   <XCircle className="h-5 w-5 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-orange-600">{data.estadisticas.ausentes}</p>
+                  <p className="text-xs text-muted-foreground">Ausencias</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <UserMinus className="h-5 w-5 text-orange-600" />
                 </div>
               </div>
             </CardContent>
