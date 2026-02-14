@@ -112,19 +112,24 @@ export class AppointmentController {
     )
     file: Express.Multer.File,
   ) {
-    // 1. Subir archivo a Supabase Storage
-    const uploadResult = await this.storageService.uploadFile(
-      file,
-      `citas/${id}`,
-    );
+    try {
+      // 1. Subir archivo a Supabase Storage
+      const uploadResult = await this.storageService.uploadFile(
+        file,
+        `citas/${id}`,
+      );
 
-    // 2. Guardar referencia en documentos_clinicos
-    return this.appointmentService.uploadDocument(parseInt(id, 10), {
-      path: uploadResult.path,
-      url: uploadResult.url,
-      nombre: file.originalname,
-      tipo: file.mimetype,
-    });
+      // 2. Guardar referencia en documentos_clinicos
+      return this.appointmentService.uploadDocument(parseInt(id, 10), {
+        path: uploadResult.path,
+        url: uploadResult.url,
+        nombre: file.originalname,
+        tipo: file.mimetype,
+      });
+    } catch (error) {
+      console.error(`(API) Error en uploadDocument controller:`, error);
+      throw error;
+    }
   }
 
   @Delete('documents/:documentId')
