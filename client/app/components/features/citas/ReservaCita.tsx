@@ -281,6 +281,9 @@ export function AppointmentForm() {
         observaciones_paciente: appointmentData.observaciones, // Campo de la BD es observaciones_paciente
         userId: userId,
         podologoId: appointmentData.podologoId, // Especialista seleccionado
+        // Enviar fecha y hora visual para el correo
+        fechaLocal: format(appointmentData.fecha!, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
+        horaLocal: appointmentData.hora,
       };
 
       console.log("Enviando datos de la cita:", payload);

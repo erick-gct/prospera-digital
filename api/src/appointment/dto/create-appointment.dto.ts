@@ -31,4 +31,13 @@ export class CreateAppointmentDto {
   @IsNotEmpty()
   @IsUUID()
   podologoId: string;
+
+  // Fecha y hora local (visual) seleccionada por el usuario para correos
+  @IsOptional()
+  @IsString()
+  fechaLocal?: string;
+
+  @IsOptional()
+  @IsString()
+  horaLocal?: string;
 }

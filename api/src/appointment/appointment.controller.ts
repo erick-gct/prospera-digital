@@ -86,9 +86,17 @@ export class AppointmentController {
   reschedule(
     @Param('id') id: string,
     @Body('nuevaFechaHora') nuevaFechaHora: string,
-    @Body('userId') userId?: string, // Para verificar rol (opcional por ahora, idealmente via Guard)
+    @Body('userId') userId?: string,
+    @Body('fechaLocal') fechaLocal?: string,
+    @Body('horaLocal') horaLocal?: string,
   ) {
-    return this.appointmentService.reschedule(parseInt(id, 10), nuevaFechaHora, userId);
+    return this.appointmentService.reschedule(
+      parseInt(id, 10),
+      nuevaFechaHora,
+      userId,
+      fechaLocal,
+      horaLocal,
+    );
   }
 
   // ================== DOCUMENTOS ==================

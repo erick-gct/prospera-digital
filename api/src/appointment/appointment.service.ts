@@ -3,12 +3,15 @@ import {
   BadRequestException,
   InternalServerErrorException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { UpdateAppointmentDetailDto } from './dto/update-appointment-detail.dto';
 import { MailService } from '../mail/mail.service';
 import { RecetaService } from '../receta/receta.service';
+import { StorageService } from '../storage/storage.service';
 import { logAuditEvent } from '../common/audit-context';
 
 @Injectable()
@@ -19,6 +22,7 @@ export class AppointmentService {
     private configService: ConfigService,
     private mailService: MailService,
     private recetaService: RecetaService,
+    private storageService: StorageService,
   ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseKey = this.configService.get<string>(
@@ -128,16 +132,24 @@ export class AppointmentService {
     });
 
     if (paciente && paciente.email) {
-      const fechaFormateada = fechaCita.toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      const horaFormateada = fechaCita.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      let fechaFormateada = createAppointmentDto.fechaLocal;
+      let horaFormateada = createAppointmentDto.horaLocal;
+
+      if (!fechaFormateada || !horaFormateada) {
+        fechaFormateada = fechaCita.toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'America/Guayaquil',
+        });
+        horaFormateada = fechaCita.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Guayaquil',
+        });
+      }
+
       const nombrePodologo = podologo
         ? `Dr. ${podologo.nombres} ${podologo.apellidos}`
         : 'Especialista asignado';
@@ -949,10 +961,12 @@ export class AppointmentService {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
+          timeZone: 'America/Guayaquil',
         });
         const horaFormateada = fechaCita.toLocaleTimeString('es-ES', {
           hour: '2-digit',
           minute: '2-digit',
+          timeZone: 'America/Guayaquil',
         });
         const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
         const nombrePodologo = podologo
@@ -982,7 +996,13 @@ export class AppointmentService {
   /**
    * Reagendar una cita (cambiar fecha y hora)
    */
-  async reschedule(citaId: number, nuevaFechaHora: string, userId?: string) {
+  async reschedule(
+    citaId: number,
+    nuevaFechaHora: string,
+    userId?: string,
+    fechaLocal?: string,
+    horaLocal?: string,
+  ) {
     // Verificar que la cita existe y obtener datos para email
     const { data: cita, error: citaError } = await this.supabase
       .from('cita')
@@ -1042,26 +1062,23 @@ export class AppointmentService {
     // Guardar fecha anterior para el email
     const fechaAnterior = new Date(cita.fecha_hora_inicio);
 
-    // VALIDACIÓN DE DOBLE BOOKING (Manual Check) - GLOBAL
-    const { data: citasExistentes, error: checkError } = await this.supabase
+    const { data: exists } = await this.supabase
       .from('cita')
       .select('id')
-      // .eq('podologo_id', cita.podologo_id) // ELIMINADO: Bloqueo global de horario
+      .eq('podologo_id', cita.podologo_id)
       .eq('fecha_hora_inicio', nuevaFechaHora)
+      .neq('id', citaId) // Excluir la misma cita (aunque raro)
       .neq('estado_id', 3) // Ignorar canceladas
-      .neq('id', citaId); // Ignorar la misma
+      .neq('estado_id', 4) // Ignorar ausencias (histórico)
+      .maybeSingle();
 
-    if (checkError) {
-      throw new InternalServerErrorException('Error verificando disponibilidad.');
-    }
-
-    if (citasExistentes && citasExistentes.length > 0) {
-      throw new BadRequestException(
-        'Ya existe una cita reservada para esa fecha y hora en el consultorio.',
+    if (exists) {
+      throw new ConflictException(
+        'El horario seleccionado ya está ocupado por otra cita.',
       );
     }
 
-    // Actualizar la fecha y hora
+    // Actualizar cita
     const { error: updateError } = await this.supabase
       .from('cita')
       .update({
@@ -1071,18 +1088,47 @@ export class AppointmentService {
       .eq('id', citaId);
 
     if (updateError) {
-      // Detectar error de unique constraint (doble booking)
-      if (updateError.code === '23505') {
-        throw new BadRequestException(
-          'Ya existe una cita reservada para esa fecha y hora. Por favor, selecciona otro horario.',
-        );
-      }
       throw new InternalServerErrorException(
         `Error reagendando cita: ${updateError.message}`,
       );
     }
 
-    // Enviar email de reagendamiento
+    // Auditoría
+    let usuarioNombre: string | null = null;
+    let auditUserId: string | null = userId || null;
+
+    if (userId) {
+      const { data: pacienteData } = await this.supabase
+        .from('paciente')
+        .select('nombres, apellidos')
+        .eq('usuario_id', userId)
+        .single();
+
+      if (pacienteData) {
+        usuarioNombre = `${pacienteData.nombres} ${pacienteData.apellidos}`;
+      } else {
+        const { data: podologoData } = await this.supabase
+          .from('podologo')
+          .select('nombres, apellidos')
+          .eq('usuario_id', userId)
+          .single();
+        if (podologoData) {
+          usuarioNombre = `${podologoData.nombres} ${podologoData.apellidos}`;
+        }
+      }
+    }
+
+    await logAuditEvent(this.supabase, {
+      tabla: 'cita',
+      registroId: citaId,
+      accion: 'UPDATE', // Reagendamiento cuenta como update
+      usuarioId: auditUserId,
+      usuarioNombre: usuarioNombre,
+      datosAnteriores: { fecha_hora_inicio: cita.fecha_hora_inicio },
+      datosNuevos: { fecha_hora_inicio: nuevaFechaHora },
+    });
+
+    // Enviar correo de reagendamiento
     const { data: paciente } = await this.supabase
       .from('paciente')
       .select('nombres, apellidos, email')
@@ -1095,40 +1141,39 @@ export class AppointmentService {
       .eq('usuario_id', cita.podologo_id)
       .single();
 
-    // Registrar auditoría (con nombre del usuario)
-    const nombrePaciente = paciente
-      ? `${paciente.nombres} ${paciente.apellidos}`
-      : null;
-    await logAuditEvent(this.supabase, {
-      tabla: 'cita',
-      registroId: citaId,
-      accion: 'UPDATE',
-      usuarioId: cita.paciente_id,
-      usuarioNombre: nombrePaciente,
-      datosAnteriores: { fecha_hora_inicio: cita.fecha_hora_inicio },
-      datosNuevos: { fecha_hora_inicio: nuevaFechaHora },
-    });
-
     if (paciente && paciente.email) {
       const fechaNueva = new Date(nuevaFechaHora);
+
+      // Formatear anterior con fallback a hora local Ecuador (ya pasó, es informativo)
       const fechaAnteriorFormateada = fechaAnterior.toLocaleDateString(
         'es-ES',
-        { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+        { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Guayaquil' },
       );
       const horaAnteriorFormateada = fechaAnterior.toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'America/Guayaquil',
       });
-      const fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      const horaNuevaFormateada = fechaNueva.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+
+      // Formatear nueva con prioridad a string local enviado por frontend
+      let fechaNuevaFormateada = fechaLocal;
+      let horaNuevaFormateada = horaLocal;
+
+      if (!fechaNuevaFormateada || !horaNuevaFormateada) {
+        fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'America/Guayaquil',
+        });
+        horaNuevaFormateada = fechaNueva.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Guayaquil',
+        });
+      }
+
       const nombrePaciente = `${paciente.nombres} ${paciente.apellidos}`;
       const nombrePodologo = podologo
         ? `Dr. ${podologo.nombres} ${podologo.apellidos}`

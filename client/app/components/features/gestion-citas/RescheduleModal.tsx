@@ -160,7 +160,10 @@ export function RescheduleModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           nuevaFechaHora: newDateTime.toISOString(),
-          userId: userId // Enviamos userId para validación extra en backend
+          userId: userId, // Enviamos userId para validación extra en backend
+          // Enviar fecha y hora visual para el correo
+          fechaLocal: format(selectedDate!, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }),
+          horaLocal: selectedTime
         }),
       })
 
