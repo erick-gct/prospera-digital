@@ -89,6 +89,13 @@ interface DashboardData {
     semanalHeatmap: { day: string; hour: number; value: number }[];
     tasaRetencion: number;
     tasaAusentismo: number;
+    // Nuevos campos
+    nuevosPacientesMes?: number;
+    crecimientoCitas?: {
+        total: number;
+        diferencia: number;
+        porcentaje: number;
+    };
   }
   proximasCitas?: {
     id: number

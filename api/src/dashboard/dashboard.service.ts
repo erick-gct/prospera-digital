@@ -534,26 +534,50 @@ export class DashboardService {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    // 2. Top Medicamentos (Detalles Receta)
-    const { data: detallesReceta } = await this.supabase
-      .from('detalles_receta')
-      .select('medicamento');
+    // 2. REEMPLAZO: Nuevas Estadísticas (Nuevos Pacientes y Crecimiento) en lugar de Medicamentos
 
-    const medicamentosCount: Record<string, number> = {};
-    if (detallesReceta) {
-      detallesReceta.forEach((d) => {
-        if (d.medicamento) {
-          // Normalizar: Primera mayuscula, resto minuscula
-          const raw = d.medicamento.trim().toLowerCase();
-          const key = raw.charAt(0).toUpperCase() + raw.slice(1);
-          medicamentosCount[key] = (medicamentosCount[key] || 0) + 1;
-        }
-      });
+    // A. Nuevos Pacientes del Mes
+    const { count: nuevosPacientesCount } = await this.supabase
+      .from('paciente')
+      .select('usuario_id', { count: 'exact', head: true })
+      .gte('fecha_creacion', startOfMonth.toISOString())
+      .lte('fecha_creacion', endOfMonth.toISOString());
+
+    const nuevosPacientesMes = nuevosPacientesCount || 0;
+
+    // B. Crecimiento de Citas (Mes Actual vs Mes Anterior)
+    // Ya tenemos totalCitas (que es del mes seleccionado). Necesitamos el del mes anterior.
+    const prevMonthStart = new Date(startOfMonth);
+    prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+    const prevMonthEnd = new Date(startOfMonth);
+    prevMonthEnd.setMilliseconds(-1); // Un ms antes del inicio del mes actual
+
+    const { count: totalCitasAnterior } = await this.supabase
+      .from('cita')
+      .select('id', { count: 'exact', head: true })
+      .eq('podologo_id', userId)
+      .gte('fecha_hora_inicio', prevMonthStart.toISOString())
+      .lte('fecha_hora_inicio', prevMonthEnd.toISOString());
+
+    const totalAnterior = totalCitasAnterior || 0;
+    const diferenciaCitas = (totalCitas || 0) - totalAnterior;
+
+    let porcentajeCrecimiento = 0;
+    if (totalAnterior === 0) {
+      porcentajeCrecimiento = (totalCitas || 0) > 0 ? 100 : 0;
+    } else {
+      porcentajeCrecimiento = Math.round(((totalCitas || 0) - totalAnterior) / totalAnterior * 100);
     }
-    const topMedicamentos = Object.entries(medicamentosCount)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+
+    const crecimientoCitas = {
+      total: totalCitas || 0,
+      diferencia: diferenciaCitas,
+      porcentaje: porcentajeCrecimiento
+    };
+
+    // (Mantener topMedicamentos como array vacío para no romper frontend temporalmente si usa la interfaz vieja, 
+    // pero idealmente actualizaremos la interfaz en el frontend también)
+    const topMedicamentos: { name: string; value: number }[] = [];
 
     // 3. Distribución de Motivos (Citas Globales) - Top 5 + Otros
     // GLOBAL (Todos los podólogos)
@@ -705,6 +729,9 @@ export class DashboardService {
         semanalHeatmap,
         tasaRetencion: Number(tasaRetencion.toFixed(1)),
         tasaAusentismo: Number(tasaAusentismo.toFixed(1)),
+        // Nuevos campos
+        nuevosPacientesMes,
+        crecimientoCitas,
       }
     };
   }

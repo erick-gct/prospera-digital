@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pill, Activity, Footprints, Flame, Users, CalendarClock, UserMinus } from "lucide-react";
+import { Pill, Activity, Footprints, Flame, Users, CalendarClock, UserMinus, TrendingUp, TrendingDown, UserPlus } from "lucide-react";
 
 interface BIAnalytics {
   topPatologias: { name: string; value: number }[];
@@ -25,6 +25,13 @@ interface BIAnalytics {
   semanalHeatmap: { day: string; hour: number; value: number }[];
   tasaRetencion: number;
   tasaAusentismo: number;
+  // Nuevos campos
+  nuevosPacientesMes?: number;
+  crecimientoCitas?: {
+      total: number;
+      diferencia: number;
+      porcentaje: number;
+  };
 }
 
 interface PodologoBIProps {
@@ -210,28 +217,63 @@ export default function PodologoBI({ data }: PodologoBIProps) {
         </CardContent>
       </Card>
 
-      {/* 3. Top Medicamentos (List Version) - Full Width */}
-      <Card className="col-span-1 md:col-span-2 lg:col-span-4 shadow-sm border-blue-100/50 bg-slate-50/50">
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg text-primary">
-                <Pill className="h-5 w-5" />
-                Medicamentos Recetados (Top 5)
+      {/* 5. Nuevos Pacientes (Mes Actual) */}
+      <Card className="col-span-1 md:col-span-1 lg:col-span-2 shadow-sm border-green-100/50 bg-gradient-to-br from-white to-green-50/30">
+        <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Users className="h-5 w-5 text-green-600" />
+                Nuevos Pacientes (Mes)
             </CardTitle>
+            <CardDescription>Pacientes registrados en el mes seleccionado</CardDescription>
         </CardHeader>
-
         <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {data.topMedicamentos.map((med, index) => (
-                    <div key={index} className="bg-white p-4 rounded-lg border shadow-sm flex flex-col items-center justify-center text-center gap-2 hover:shadow-md transition-shadow">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-sm bg-gradient-to-br from-blue-400 to-blue-600`}>
-                            #{index + 1}
-                        </div>
-                        <span className="font-medium text-sm text-slate-700 line-clamp-2 min-h-[40px] flex items-center">{med.name}</span>
-                        <div className="text-xs text-muted-foreground bg-slate-100 px-2 py-1 rounded-full">
-                            {med.value} Recetas
-                        </div>
+            <div className="flex items-center gap-4">
+                <div className="bg-green-100 p-3 rounded-full">
+                    <UserPlus className="h-8 w-8 text-green-600" />
+                </div>
+                <div>
+                    <span className="text-4xl font-bold text-slate-800 block">
+                        +{data.nuevosPacientesMes || 0}
+                    </span>
+                    <span className="text-sm text-muted-foreground">Pacientes nuevos</span>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
+
+      {/* 6. Crecimiento de Citas (Comparativa Mes Anterior) */}
+      <Card className="col-span-1 md:col-span-1 lg:col-span-2 shadow-sm border-purple-100/50 bg-gradient-to-br from-white to-purple-50/30">
+        <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-purple-600" />
+                Crecimiento de Citas
+            </CardTitle>
+            <CardDescription>Comparativa con el mes anterior</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="flex items-baseline gap-2">
+                         <span className="text-4xl font-bold text-slate-800">
+                            {data.crecimientoCitas?.total || 0}
+                         </span>
+                         <span className="text-sm text-muted-foreground">Citas este mes</span>
                     </div>
-                ))}
+                </div>
+                
+                {data.crecimientoCitas && (
+                    <div className={`flex flex-col items-end ${data.crecimientoCitas.diferencia >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        <div className="flex items-center gap-1 font-bold text-lg bg-white/80 px-2 py-1 rounded-md shadow-sm">
+                            {data.crecimientoCitas.diferencia >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                            {data.crecimientoCitas.diferencia > 0 && '+'}
+                            {data.crecimientoCitas.porcentaje}%
+                        </div>
+                        <span className="text-xs font-medium mt-1">
+                            {data.crecimientoCitas.diferencia > 0 && '+'}
+                            {data.crecimientoCitas.diferencia} citas vs mes anterior
+                        </span>
+                    </div>
+                )}
             </div>
         </CardContent>
       </Card>
