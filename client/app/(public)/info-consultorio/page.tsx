@@ -36,8 +36,9 @@ export default function ClinicInfoPage() {
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Ubicación</h3>
                 <p className="text-sm md:text-base text-gray-600 mb-2">
-                  Av. Principal 123, Edificio Médico "Salud Integral"<br />
-                  Piso 4, Consultorio 405
+                  Utah- USA.
+                Entity Number 14529471-0160<br />
+                Consultorio 405
                 </p>
                 <a href="#" className="text-[#20aca2] font-semibold text-sm hover:underline flex items-center">
                   Ver en Google Maps <ArrowRight className="w-4 h-4 ml-1" />
@@ -55,11 +56,11 @@ export default function ClinicInfoPage() {
                 <div className="space-y-1 text-gray-600 text-sm w-full max-w-xs">
                   <div className="flex justify-between">
                     <span>Lunes - Viernes:</span>
-                    <span className="font-medium text-gray-900">9:00 AM - 7:00 PM</span>
+                    <span className="font-medium text-gray-900">9:00 AM - 6:00 PM</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Sábados:</span>
-                    <span className="font-medium text-gray-900">9:00 AM - 2:00 PM</span>
+                    <span className="font-medium text-gray-900">9:00 AM - 6:00 PM</span>
                   </div>
                   <div className="flex justify-between text-gray-400">
                     <span>Domingos:</span>
@@ -82,11 +83,11 @@ export default function ClinicInfoPage() {
                 </p>
                 <div className="space-y-2">
                   <p className="font-bold text-lg md:text-xl text-[#20aca2] tracking-wide">
-                    (555) 123-4567
+                    Tel: +1 435 754 5008
                   </p>
                   <div className="flex items-center text-gray-500 text-sm">
                     <Mail className="w-4 h-4 mr-2" />
-                    info@consultoriopodologico.com
+                    team@prospira.vip
                   </div>
                 </div>
               </div>
@@ -97,7 +98,7 @@ export default function ClinicInfoPage() {
           {/* COLUMNA DERECHA: Mapa Visual (Placeholder) */}
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden h-64 md:h-full min-h-[250px] md:min-h-[400px] relative border border-gray-100 group">
             <Image 
-              src="/assets/consultorio.jpg" 
+              src="/assets/consultorio.png" 
               alt="Fachada del Consultorio" 
               fill
               className="object-cover transition-transform duration-700 group-hover:scale-105"
