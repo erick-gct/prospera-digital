@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from "next/image";
 import { GraduationCap, Award, Stethoscope, HeartHandshake, MapPin, Phone, Clock } from 'lucide-react';
 
 export default function AboutPodiatristPage() {
@@ -26,19 +27,13 @@ export default function AboutPodiatristPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8 md:mb-10">
           <div className="flex flex-col md:flex-row">
             {/* Espacio para la FOTO */}
-            <div className="w-full md:w-1/3 bg-slate-100 relative min-h-[250px] md:min-h-[320px] flex items-center justify-center">
-              {/* Placeholder para la imagen */}
-              <div className="text-center p-6">
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center text-gray-400">
-                  <span className="text-xs">Foto</span>
-                </div>
-                <span className="text-xs md:text-sm text-gray-500 block">
-                  Inserte imagen aquí<br/>
-                  (Recomendado: 400x500px)
-                </span>
-              </div>
-            </div>
-
+   <div className="w-full md:w-1/3 bg-slate-100 relative min-h-[250px] md:min-h-[320px] overflow-hidden">
+  <Image
+    src= "/assets/podologo.jpg"
+    alt="Dr. Podólogo"
+    className="w-full h-full object-cover"
+  />
+</div>
             {/* Texto de la Bio */}
             <div className="p-6 md:p-12 w-full md:w-2/3 flex flex-col justify-center">
               {/* Etiqueta en Azul del botón para contraste */}
@@ -46,7 +41,7 @@ export default function AboutPodiatristPage() {
                 Perfil Profesional
               </div>
               <h2 className="text-2xl md:text-3xl font-serif text-gray-900 mb-4 md:mb-6">
-                Dr. [Nombre y Apellido]
+                Dr. Marlon A. Vera
               </h2>
               <p className="text-gray-600 leading-relaxed mb-6 text-justify text-sm md:text-base">
                 Como especialista en podología clínica, he dedicado mi carrera a entender la biomecánica del pie y su impacto en la salud general. Mi enfoque integra la medicina preventiva con tratamientos correctivos avanzados, asegurando que cada paciente reciba una solución adaptada a su estilo de vida.
@@ -56,7 +51,7 @@ export default function AboutPodiatristPage() {
                 <p className="text-gray-800 font-medium italic font-serif text-sm md:text-base">
                   "Un diagnóstico preciso es el primer paso hacia una recuperación efectiva."
                 </p>
-                <p className="text-gray-400 text-sm mt-2">- Dr. [Apellido]</p>
+                <p className="text-gray-400 text-sm mt-2">- Dr. Marlon A. Vera</p>
               </div>
             </div>
           </div>
@@ -127,7 +122,8 @@ export default function AboutPodiatristPage() {
               </div>
               <h4 className="font-semibold text-gray-900 text-sm">Ubicación de la Clínica</h4>
               <p className="text-gray-500 text-sm mt-1">
-                Av. Principal 123, Edificio Médico<br />
+                Utah- USA.
+                Entity Number 14529471-0160<br />
                 Consultorio 405
               </p>
             </div>
@@ -140,7 +136,7 @@ export default function AboutPodiatristPage() {
               <h4 className="font-semibold text-gray-900 text-sm">Horarios de Atención</h4>
               <p className="text-gray-500 text-sm mt-1">
                 Lun - Vie: 9:00 AM - 6:00 PM<br />
-                Sáb: 9:00 AM - 1:00 PM
+                Sáb: 9:00 AM - 6:00 PM
               </p>
             </div>
 
@@ -152,8 +148,8 @@ export default function AboutPodiatristPage() {
               </div>
               <h4 className="font-semibold text-gray-900 text-sm">Contacto</h4>
               <p className="text-gray-500 text-sm mt-1">
-                Tel: (555) 123-4567<br />
-                info@tudominio.com
+                Tel: +1 435 754 5008<br />
+                team@prospira.vip
               </p>
             </div>
 
