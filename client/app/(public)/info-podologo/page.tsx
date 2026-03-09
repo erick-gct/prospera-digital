@@ -29,7 +29,7 @@ export default function AboutPodiatristPage() {
             {/* Espacio para la FOTO */}
    <div className="w-full md:w-1/3 bg-slate-100 relative min-h-[250px] md:min-h-[320px] overflow-hidden">
   <Image
-    src= "/assets/podologo.jpg"
+    src= "/assets/podologo.jpeg"
     alt="Dr. Podólogo"
     className="w-full h-full object-cover"
   />
