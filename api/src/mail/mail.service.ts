@@ -96,7 +96,7 @@ export class MailService {
     const html = this.getHtmlTemplate(title, body, '#f97316'); // Orange
     const resultPaciente = await this.sendEmail(
       email,
-      'No asististe a tu cita - Prospera Digital',
+      'No asististe a tu cita - Prospira Digital',
       html,
     );
 
@@ -178,7 +178,7 @@ export class MailService {
    * Envía correo de recuperación de contraseña
    */
   async sendPasswordRecoveryEmail(to: string, resetLink: string, userName: string = 'Usuario') {
-    const subject = 'Recuperación de Contraseña - Prospera Digital';
+    const subject = 'Recuperación de Contraseña - Prospira Digital';
     const htmlContent = this.getHtmlTemplate(
       'Recupera tu Acceso',
       `
@@ -211,7 +211,7 @@ export class MailService {
       console.log(`(Mail) Enviando a: ${destinatarios.join(', ')}`);
 
       const data = await this.resend.emails.send({
-        from: `Prospera Digital <${this.fromAddress}>`,
+        from: `Prospira Digital <${this.fromAddress}>`,
         to: destinatarios,
         subject: subject,
         html: htmlContent,
@@ -260,7 +260,7 @@ export class MailService {
             ${body}
           </div>
           <div class="footer">
-            <p>© ${new Date().getFullYear()} Prospera Digital LLC. Todos los derechos reservados.</p>
+            <p>© ${new Date().getFullYear()} Prospira Digital LLC. Todos los derechos reservados.</p>
           </div>
         </div>
       </body>
@@ -317,7 +317,7 @@ export class MailService {
             </center>
           </div>
           <div class="footer">
-            <p>Este es un mensaje automático del sistema de gestión Prospera Digital.</p>
+            <p>Este es un mensaje automático del sistema de gestión Prospira Digital.</p>
           </div>
         </div>
       </body>
@@ -331,7 +331,7 @@ export class MailService {
    * Enviar correo de Bienvenida al registrarse
    */
   async sendWelcomeEmail(email: string, nombre: string) {
-    const title = '¡Bienvenido a Prospera Digital!';
+    const title = '¡Bienvenido a Prospira Digital!';
     const body = `
       <p>Hola <strong>${nombre}</strong>,</p>
       <p>Gracias por registrarte en nuestro sistema de gestión podológica.</p>
@@ -342,7 +342,7 @@ export class MailService {
     `;
 
     const html = this.getHtmlTemplate(title, body);
-    return this.sendEmail(email, 'Bienvenido a Prospera Digital', html);
+    return this.sendEmail(email, 'Bienvenido a Prospira Digital', html);
   }
 
   /**
@@ -379,7 +379,7 @@ export class MailService {
     const html = this.getHtmlTemplate(title, body, '#2A9D8F');
     const resultPaciente = await this.sendEmail(
       email,
-      'Cita Confirmada - Prospera Digital',
+      'Cita Confirmada - Prospira Digital',
       html,
     );
 
@@ -466,7 +466,7 @@ export class MailService {
     const html = this.getHtmlTemplate(title, body, '#f59e0b');
     const resultPaciente = await this.sendEmail(
       email,
-      'Cita Reagendada - Prospera Digital',
+      'Cita Reagendada - Prospira Digital',
       html,
     );
 
@@ -553,7 +553,7 @@ export class MailService {
     const html = this.getHtmlTemplate(title, body, '#ef4444');
     const resultPaciente = await this.sendEmail(
       email,
-      'Cita Cancelada - Prospera Digital',
+      'Cita Cancelada - Prospira Digital',
       html,
     );
 
@@ -621,13 +621,13 @@ export class MailService {
     try {
       console.log(`(Mail) Enviando receta a ${email}`);
       const data = await this.resend.emails.send({
-        from: `Prospera Digital <${this.fromAddress}>`,
+        from: `Prospira Digital <${this.fromAddress}>`,
         to: [email],
-        subject: 'Receta Médica - Prospera Digital',
+        subject: 'Receta Médica - Prospira Digital',
         html: html,
         attachments: [
           {
-            filename: 'Receta-Medica-ProsperaDigital.pdf',
+            filename: 'Receta-Medica-ProspiraDigital.pdf',
             content: pdfBuffer,
           },
         ],

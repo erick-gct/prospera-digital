@@ -83,7 +83,7 @@ export default function HomePage() {
             ¿Por qué Elegirnos?
           </h2>
           <p className="mx-auto mt-4 max-w-[700px] text-base md:text-lg text-primary-foreground/90">
-            Prospera Digital LLC es el consultorio podológico de confianza,
+            Prospira Digital LLC es el consultorio podológico de confianza,
             dedicado a brindar atención precisa, segura y personalizada.
           </p>
 
@@ -214,7 +214,7 @@ export default function HomePage() {
             <div className="relative w-full max-w-5xl  shadow-2xl overflow-hidden border border-border/50">
               <Image
                 src="/assets/interfaz/interfaz-paciente.png"
-                alt="Interfaz del sistema Prospera Digital"
+                alt="Interfaz del sistema Prospira Digital"
                 width={1200}
                 height={800}
                 className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"

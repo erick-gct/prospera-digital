@@ -38,11 +38,11 @@ export function PublicNavbar() {
       {/* LOGO */}
       <Link href="/" className="flex-shrink-0 z-50">
         <Image
-          src="/assets/logo/icono1.ico"
-          alt="Prospera Digital Logo"
-          width={50}
-          height={50}
-          className="h-10 w-auto md:h-12"
+          src="/assets/logo/logo-prospira-grande.png"
+          alt="Prospira Digital Logo"
+          width={400}
+          height={400}
+          className="h-10 w-auto md:h-12 object-contain"
           priority={true}
         />
       </Link>

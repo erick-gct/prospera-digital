@@ -368,7 +368,7 @@ export function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-primary uppercase">
-                    Prospera
+                    Prospira
                   </span>
                   <span className="text-[10px] text-muted-foreground">
                     Digital LLC
