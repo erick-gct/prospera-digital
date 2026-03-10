@@ -129,7 +129,7 @@ export class RecetaService {
         'public',
         'assets',
         'logo',
-        'logo-completo.png',
+        'logo-prospira-grande.png',
       );
 
       // Header con logo
@@ -146,7 +146,7 @@ export class RecetaService {
       doc
         .fontSize(20)
         .fillColor(primaryColor)
-        .text('PROSPERA DIGITAL', 140, 50, { align: 'left' });
+        .text('PROSPIRA DIGITAL', 140, 50, { align: 'left' });
       doc
         .fontSize(12)
         .fillColor(grayColor)
@@ -337,7 +337,7 @@ export class RecetaService {
       doc
         .fontSize(8)
         .fillColor(grayColor)
-        .text('© Prospera Digital - Todos los derechos reservados', 50, 780, {
+        .text('© Prospira Digital - Todos los derechos reservados', 50, 780, {
           align: 'center',
         });
 
