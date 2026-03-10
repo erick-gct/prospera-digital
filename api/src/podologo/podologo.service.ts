@@ -23,7 +23,8 @@ export class PodologoService {
   async findAll() {
     const { data, error } = await this.supabase
       .from('podologo')
-      .select('usuario_id, nombres, apellidos')
+      .select('usuario_id, nombres, apellidos, estado')
+      .eq('estado', 1)
       .order('apellidos', { ascending: true });
 
     if (error)
