@@ -483,7 +483,7 @@ export function DashboardPaciente() {
         {/* Izquierda: Stats Totales */}
         <div className="space-y-4">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-2">Totales Históricos</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Card>
               <CardContent className="pt-4 pb-4 text-center">
                 <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center mx-auto mb-2">
@@ -504,6 +504,7 @@ export function DashboardPaciente() {
               </CardContent>
             </Card>
 
+            {/* ORTESIS OCULTO
             <Card>
               <CardContent className="pt-4 pb-4 text-center">
                 <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center mx-auto mb-2">
@@ -513,6 +514,7 @@ export function DashboardPaciente() {
                 <p className="text-xs text-muted-foreground">Órtesis</p>
               </CardContent>
             </Card>
+            */}
           </div>
         </div>
 

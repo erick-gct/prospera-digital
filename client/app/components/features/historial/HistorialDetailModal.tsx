@@ -169,10 +169,12 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
                   </Badge>
                 )}
               </TabsTrigger>
+              {/* ORTESIS OCULTO
               <TabsTrigger value="ortesis" className="gap-1 text-xs">
                 <Footprints className="h-3 w-3" />
                 <span className="hidden sm:inline">Órtesis</span>
               </TabsTrigger>
+              */}
               <TabsTrigger value="evaluacion" className="gap-1 text-xs">
                 <ClipboardList className="h-3 w-3" />
                 <span className="hidden sm:inline">Evaluación</span>
@@ -262,7 +264,7 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
               )}
             </TabsContent>
 
-            {/* Tab: Órtesis */}
+            {/* ORTESIS OCULTO
             <TabsContent value="ortesis" className="space-y-4 pt-4">
               {!detail.ortesis ? (
                 <p className="text-center text-muted-foreground py-8">No hay datos de órtesis registrados</p>
@@ -307,6 +309,7 @@ export function HistorialDetailModal({ citaId, open, onOpenChange }: HistorialDe
                 </div>
               )}
             </TabsContent>
+            */}
 
             {/* Tab: Evaluación */}
             <TabsContent value="evaluacion" className="space-y-4 pt-4">

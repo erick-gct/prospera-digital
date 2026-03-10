@@ -221,10 +221,12 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                   </Badge>
                 )}
               </TabsTrigger>
+              {/* ORTESIS OCULTO
               <TabsTrigger value="ortesis" className="gap-1 text-xs py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <Footprints className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Órtesis</span>
               </TabsTrigger>
+              */}
               <TabsTrigger value="evaluacion" className="gap-1 text-xs py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <ClipboardList className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Evaluación</span>
@@ -338,7 +340,7 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
               )}
             </TabsContent>
 
-            {/* Tab: Órtesis */}
+            {/* ORTESIS OCULTO
             <TabsContent value="ortesis" className="space-y-4 pt-4 px-1">
               {!detail.ortesis ? (
                 <div className="text-center py-10 bg-slate-50 rounded-lg border border-dashed">
@@ -347,8 +349,6 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  {/* ... ortesis content ... */}
-                   {/* Keeping simplified for brevity in this replace, ensuring structure is correct */}
                    <div className="col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100 mb-2">
                       <h4 className="font-medium flex items-center gap-2 mb-2 text-blue-800">
                         <Footprints className="h-4 w-4" />
@@ -369,7 +369,6 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                           )}
                       </div>
                    </div>
-                   {/* Dates */}
                    <div className="grid grid-cols-3 gap-2 col-span-2 text-sm">
                       {[{ label: "Toma de Molde", date: detail.ortesis.fecha_toma_molde },
                         { label: "Envío Lab", date: detail.ortesis.fecha_envio_laboratorio },
@@ -392,6 +391,7 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                 </div>
               )}
             </TabsContent>
+            */}
 
             {/* Tab: Evaluación */}
             <TabsContent value="evaluacion" className="space-y-4 pt-4 px-1">
