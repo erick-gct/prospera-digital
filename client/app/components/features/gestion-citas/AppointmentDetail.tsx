@@ -557,7 +557,6 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
               </Badge>
             )}
           </TabsTrigger>
-          {/* ORTESIS OCULTO 
           <TabsTrigger 
             value="ortesis" 
             className="gap-2 py-3 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
@@ -565,7 +564,6 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
             <Footprints className="h-4 w-4" />
             <span className="hidden sm:inline">Ortesis</span>
           </TabsTrigger>
-          */}
           <TabsTrigger 
             value="evaluacion" 
             className="gap-2 py-3 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
@@ -766,7 +764,6 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
           </Card>
         </TabsContent>
 
-        {/* ORTESIS OCULTO
         <TabsContent value="ortesis" className="mt-6">
           <OrtesisSection 
             citaId={cita.id} 
@@ -775,7 +772,6 @@ export function AppointmentDetail({ cita, onBack }: AppointmentDetailProps) {
             disabled={!isEditable}
           />
         </TabsContent>
-        */}
 
         {/* Tab: Evaluación del pie */}
         <TabsContent value="evaluacion" className="mt-6">

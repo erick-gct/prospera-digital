@@ -221,12 +221,10 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                   </Badge>
                 )}
               </TabsTrigger>
-              {/* ORTESIS OCULTO
               <TabsTrigger value="ortesis" className="gap-1 text-xs py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <Footprints className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Órtesis</span>
               </TabsTrigger>
-              */}
               <TabsTrigger value="evaluacion" className="gap-1 text-xs py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <ClipboardList className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Evaluación</span>
@@ -340,7 +338,6 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
               )}
             </TabsContent>
 
-            {/* ORTESIS OCULTO
             <TabsContent value="ortesis" className="space-y-4 pt-4 px-1">
               {!detail.ortesis ? (
                 <div className="text-center py-10 bg-slate-50 rounded-lg border border-dashed">
@@ -391,7 +388,6 @@ export function PatientAppointmentDetailModal({ citaId, open, onOpenChange }: Pa
                 </div>
               )}
             </TabsContent>
-            */}
 
             {/* Tab: Evaluación */}
             <TabsContent value="evaluacion" className="space-y-4 pt-4 px-1">
